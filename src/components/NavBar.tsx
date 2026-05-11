@@ -7,6 +7,7 @@ const links = [
   { href: '/',      label: 'ダッシュボード' },
   { href: '/calls', label: '通話履歴' },
   { href: '/stats', label: '分析' },
+  { href: '/upload', label: 'アップロード' },
 ]
 export default function NavBar() {
   const pathname = usePathname()

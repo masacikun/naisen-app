@@ -1,6 +1,6 @@
 'use client'
 import { useRouter, usePathname } from 'next/navigation'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 type Call = { status: string; duration_sec?: number; line_name?: string; caller?: string; started_at: string }
@@ -18,20 +18,27 @@ export default function ReportClient({
   month: string; calls: Call[]; dailyRows: DailyRow[]
 }) {
   const router = useRouter(), pathname = usePathname()
+  const [lineFilter, setLineFilter] = useState('')
+
+  // 回線一覧
+  const lines = useMemo(() => Array.from(new Set(calls.map(c => c.line_name).filter(Boolean))).sort() as string[], [calls])
+
+  // 回線フィルター適用
+  const fCalls = useMemo(() => lineFilter ? calls.filter(c => c.line_name === lineFilter) : calls, [calls, lineFilter])
 
   // KPI
-  const total    = calls.length
-  const answered = calls.filter(c => c.status === 'ANSWERED').length
-  const missed   = calls.filter(c => c.status === 'NO ANSWER').length
+  const total    = fCalls.length
+  const answered = fCalls.filter(c => c.status === 'ANSWERED').length
+  const missed   = fCalls.filter(c => c.status === 'NO ANSWER').length
   const rate     = total ? Math.round(answered / total * 100) : 0
   const avgSec   = answered
-    ? Math.round(calls.filter(c => c.status === 'ANSWERED' && c.duration_sec).reduce((s, c) => s + (c.duration_sec ?? 0), 0) / answered)
+    ? Math.round(fCalls.filter(c => c.status === 'ANSWERED' && c.duration_sec).reduce((s, c) => s + (c.duration_sec ?? 0), 0) / answered)
     : 0
 
   // 回線別
   const lineData = useMemo(() => {
     const m: Record<string, { total: number; answered: number; missed: number; sec: number }> = {}
-    for (const c of calls) {
+    for (const c of fCalls) {
       const l = c.line_name || '不明'
       if (!m[l]) m[l] = { total: 0, answered: 0, missed: 0, sec: 0 }
       m[l].total++
@@ -41,7 +48,7 @@ export default function ReportClient({
     return Object.entries(m)
       .map(([name, v]) => ({ name, ...v, rate: Math.round(v.answered / v.total * 100), avg: v.answered ? Math.round(v.sec / v.answered) : 0 }))
       .sort((a, b) => b.total - a.total)
-  }, [calls])
+  }, [fCalls])
 
   // 日次グラフ（dailyRows 集計）
   const dailyChart = useMemo(() => {
@@ -57,7 +64,7 @@ export default function ReportClient({
   // TOP着信番号
   const topCallers = useMemo(() => {
     const m: Record<string, { total: number; answered: number }> = {}
-    for (const c of calls) {
+    for (const c of fCalls) {
       if (!c.caller) continue
       if (!m[c.caller]) m[c.caller] = { total: 0, answered: 0 }
       m[c.caller].total++
@@ -66,7 +73,7 @@ export default function ReportClient({
     return Object.entries(m)
       .map(([caller, v]) => ({ caller, ...v }))
       .sort((a, b) => b.total - a.total).slice(0, 10)
-  }, [calls])
+  }, [fCalls])
 
   // 月選択（前後6ヶ月）
   const [y, mo] = month.split('-').map(Number)
@@ -84,6 +91,11 @@ export default function ReportClient({
           <select value={month} onChange={e => router.push(`${pathname}?month=${e.target.value}`)}
             className="border rounded px-3 py-1.5 text-sm">
             {monthOptions.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <select value={lineFilter} onChange={e => setLineFilter(e.target.value)}
+            className="border rounded px-3 py-1.5 text-sm">
+            <option value="">全回線</option>
+            {lines.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
           <button onClick={() => window.print()}
             className="px-4 py-1.5 rounded bg-slate-700 text-white text-sm hover:bg-slate-800">

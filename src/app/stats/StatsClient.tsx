@@ -1,22 +1,33 @@
 'use client'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Legend, PieChart, Pie, Cell } from 'recharts'
+import { BRANDS, BRAND_IDS, getActiveLines, isInternalCaller } from '@/lib/brands'
 
 type Hourly        = { hour: number; line_name: string; call_count: number; answered: number }
 type Monthly       = { month: string; line_name: string; call_count: number; total_sec: number; status: string }
-type DowData       = { label: string; total: number; answered: number; no_answer: number }
+type DailyRow      = { call_date: string; line_name: string; call_count: number; answered: number; no_answer: number }
 type TopCaller     = { caller: string; call_count: number; answered: number; no_answer: number; last_called_at: string }
 type AvgDuration   = { line_name: string; answered_count: number; avg_sec: number; max_sec: number }
 type DurationDist  = { bucket: string; sort_order: number; call_count: number }
 type RepeatAnalysis = { caller_type: string; caller_count: number; call_count: number }
+type IvrRoute      = { ivr_route: string; line_name: string; call_count: number; answered: number; no_answer: number; answer_rate: number }
 
 const LINE_COLORS: Record<string, string> = {
   'gates':'#3b82f6','SmileFood':'#10b981','CoSmile':'#f59e0b','SmileEstate':'#8b5cf6',
   'GACHA':'#ef4444','tenjin':'#06b6d4','1_gates':'#84cc16','水炊き・もつ鍋':'#f97316',
   'クリマバイト':'#ec4899','Central':'#6366f1',
 }
-
 const PIE_COLORS = ['#3b82f6', '#f59e0b']
+const PERIOD_OPTIONS = [
+  { value: 'this_month', label: '今月' },
+  { value: 'last_month', label: '先月' },
+  { value: '3m',         label: '3ヶ月' },
+  { value: '6m',         label: '6ヶ月' },
+  { value: '1y',         label: '1年' },
+  { value: 'all',        label: '全期間' },
+  { value: 'custom',     label: 'カスタム' },
+]
 
 function fmtSec(s: number) {
   if (!s) return '-'
@@ -28,6 +39,11 @@ function fmtSec(s: number) {
 function HourLineHeatmap({ hourly }: { hourly: Hourly[] }) {
   const lines = useMemo(() => Array.from(new Set(hourly.map(r => r.line_name))).sort(), [hourly])
   const maxCount = useMemo(() => Math.max(...hourly.map(r => r.call_count), 1), [hourly])
+  const dataMap  = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of hourly) m.set(`${r.hour}|${r.line_name}`, r.call_count)
+    return m
+  }, [hourly])
 
   function cellColor(n: number) {
     if (n === 0) return '#f8fafc'
@@ -36,14 +52,7 @@ function HourLineHeatmap({ hourly }: { hourly: Hourly[] }) {
     if (r < 0.6) return '#60a5fa'; if (r < 0.8) return '#3b82f6'; return '#1d4ed8'
   }
 
-  const dataMap = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const r of hourly) m.set(`${r.hour}|${r.line_name}`, r.call_count)
-    return m
-  }, [hourly])
-
   if (lines.length === 0) return null
-
   return (
     <div className="overflow-x-auto">
       <table className="text-xs border-collapse w-full">
@@ -85,54 +94,127 @@ function HourLineHeatmap({ hourly }: { hourly: Hourly[] }) {
 }
 
 export default function StatsClient({
-  hourly, monthly, dowData, topCallers, avgDuration, durationDist, repeatAnalysis,
+  period, periodFrom, periodTo,
+  hourly, dailyRows, monthly, topCallers, avgDuration, durationDist, repeatAnalysis, ivrRoutes,
 }: {
-  hourly: Hourly[]; monthly: Monthly[]; dowData: DowData[]
+  period: string; periodFrom?: string; periodTo?: string
+  hourly: Hourly[]; dailyRows: DailyRow[]; monthly: Monthly[]
   topCallers: TopCaller[]; avgDuration: AvgDuration[]
   durationDist: DurationDist[]; repeatAnalysis: RepeatAnalysis[]
+  ivrRoutes: IvrRoute[]
 }) {
-  // 時間帯別
-  const hourlyTotal = Array.from({ length: 24 }, (_, h) => {
-    const rows = hourly.filter(r => r.hour === h)
+  const router   = useRouter()
+  const pathname = usePathname()
+
+  // ── フィルター状態 ──
+  const [selected, setSelected]   = useState<Set<string>>(new Set())
+  const [excludeInt, setExcludeInt] = useState(true)
+  const [customFrom, setCustomFrom] = useState(periodFrom || '')
+  const [customTo,   setCustomTo]   = useState(periodTo   || '')
+
+  function toggleBrand(id: string) {
+    setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  }
+  function toggleAll() {
+    setSelected(prev => prev.size === 0 ? new Set(BRAND_IDS) : new Set())
+  }
+
+  const isAll       = selected.size === 0
+  const activeLines = useMemo(() => getActiveLines(selected), [selected])
+
+  function navPeriod(p: string, from?: string, to?: string) {
+    const params = new URLSearchParams({ period: p })
+    if (p === 'custom' && from && to) { params.set('from', from); params.set('to', to) }
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
+  // ── ブランド + 内線フィルタリング ──
+  function flLine<T extends { line_name?: string | null }>(arr: T[]): T[] {
+    return activeLines ? arr.filter(r => r.line_name && activeLines.includes(r.line_name)) : arr
+  }
+
+  const fHourly    = useMemo(() => flLine(hourly),    [hourly,    activeLines]) // eslint-disable-line
+  const fDailyRows = useMemo(() => flLine(dailyRows), [dailyRows, activeLines]) // eslint-disable-line
+  const fMonthly   = useMemo(() => flLine(monthly),   [monthly,   activeLines]) // eslint-disable-line
+  const fAvgDur    = useMemo(() => flLine(avgDuration), [avgDuration, activeLines]) // eslint-disable-line
+
+  const fTopCallers = useMemo(() =>
+    excludeInt ? topCallers.filter(c => !isInternalCaller(c.caller)) : topCallers
+  , [topCallers, excludeInt])
+
+  // ── DOW 集計（client side from dailyRows） ──
+  const dowData = useMemo(() => {
+    const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土']
+    const dowMap = Array.from({ length: 7 }, (_, i) => ({ dow: i, label: DOW_LABELS[i], total: 0, answered: 0, no_answer: 0 }))
+    for (const r of fDailyRows) {
+      const d = new Date(String(r.call_date).slice(0, 10) + 'T12:00:00Z').getDay()
+      dowMap[d].total     += r.call_count ?? 0
+      dowMap[d].answered  += r.answered   ?? 0
+      dowMap[d].no_answer += r.no_answer  ?? 0
+    }
+    return [1,2,3,4,5,6,0].map(i => dowMap[i])
+  }, [fDailyRows])
+
+  // ── 時間帯別 ──
+  const hourlyTotal = useMemo(() => Array.from({ length: 24 }, (_, h) => {
+    const rows = fHourly.filter(r => r.hour === h)
     const total = rows.reduce((s, r) => s + r.call_count, 0)
     const answered = rows.reduce((s, r) => s + r.answered, 0)
     return { hour: `${h}時`, total, answered, missed: total - answered }
-  })
-  const missedRanking = [...hourlyTotal].sort((a, b) => b.missed - a.missed).slice(0, 10)
+  }), [fHourly])
 
-  // 月別トレンド
-  const answeredMonthly = monthly.filter(r => r.status === 'ANSWERED')
-  const months = Array.from(new Set(answeredMonthly.map(r => r.month.slice(0, 7)))).sort()
-  const lines  = Array.from(new Set(answeredMonthly.map(r => r.line_name)))
-  const trendData = months.slice(-12).map(m => {
-    const row: Record<string, string | number> = { month: m }
-    lines.forEach(l => { row[l] = answeredMonthly.find(r => r.month.slice(0, 7) === m && r.line_name === l)?.call_count || 0 })
-    return row
-  })
+  const missedRanking = useMemo(() =>
+    [...hourlyTotal].sort((a, b) => b.missed - a.missed).slice(0, 10)
+  , [hourlyTotal])
 
-  // 応答率
-  const rateMap: Record<string, { total: number; answered: number }> = {}
-  monthly.forEach(r => {
-    if (!rateMap[r.line_name]) rateMap[r.line_name] = { total: 0, answered: 0 }
-    rateMap[r.line_name].total += r.call_count
-    if (r.status === 'ANSWERED') rateMap[r.line_name].answered += r.call_count
-  })
-  const rateData = Object.entries(rateMap)
-    .map(([name, v]) => ({ name, rate: Math.round(v.answered / v.total * 100), total: v.total }))
-    .sort((a, b) => b.total - a.total).slice(0, 10)
+  // ── 月別トレンド ──
+  const { trendData, trendLines } = useMemo(() => {
+    const answered = fMonthly.filter(r => r.status === 'ANSWERED')
+    const months   = Array.from(new Set(answered.map(r => r.month.slice(0, 7)))).sort()
+    const lines    = Array.from(new Set(answered.map(r => r.line_name)))
+    const data = months.slice(-12).map(m => {
+      const row: Record<string, string | number> = { month: m }
+      lines.forEach(l => { row[l] = answered.find(r => r.month.slice(0, 7) === m && r.line_name === l)?.call_count || 0 })
+      return row
+    })
+    return { trendData: data, trendLines: lines }
+  }, [fMonthly])
 
-  // 平均通話時間
-  const maxAvg = Math.max(...avgDuration.map(r => Number(r.avg_sec) || 0), 1)
+  // ── 応答率 ──
+  const rateData = useMemo(() => {
+    const rateMap: Record<string, { total: number; answered: number }> = {}
+    fMonthly.forEach(r => {
+      if (!rateMap[r.line_name]) rateMap[r.line_name] = { total: 0, answered: 0 }
+      rateMap[r.line_name].total += r.call_count
+      if (r.status === 'ANSWERED') rateMap[r.line_name].answered += r.call_count
+    })
+    return Object.entries(rateMap)
+      .map(([name, v]) => ({ name, rate: Math.round(v.answered / v.total * 100), total: v.total }))
+      .sort((a, b) => b.total - a.total).slice(0, 10)
+  }, [fMonthly])
 
-  // 通話時間分布
+  // ── IVR 集計（ブランドフィルタ適用） ──
+  const fIvr = useMemo(() => flLine(ivrRoutes), [ivrRoutes, activeLines]) // eslint-disable-line
+  const ivrSummary = useMemo(() => {
+    const m: Record<string, { call_count: number; answered: number; no_answer: number }> = {}
+    for (const r of fIvr) {
+      if (!m[r.ivr_route]) m[r.ivr_route] = { call_count: 0, answered: 0, no_answer: 0 }
+      m[r.ivr_route].call_count += Number(r.call_count)
+      m[r.ivr_route].answered   += Number(r.answered)
+      m[r.ivr_route].no_answer  += Number(r.no_answer)
+    }
+    return Object.entries(m)
+      .map(([route, v]) => ({ route, ...v, rate: v.call_count ? Math.round(v.answered / v.call_count * 100) : 0 }))
+      .sort((a, b) => b.call_count - a.call_count).slice(0, 20)
+  }, [fIvr])
+
+  const maxAvg = Math.max(...fAvgDur.map(r => Number(r.avg_sec) || 0), 1)
   const sortedDist = [...durationDist].sort((a, b) => a.sort_order - b.sort_order)
 
-  // リピーター分析
-  const repeaterRow    = repeatAnalysis.find(r => r.caller_type === 'リピーター')
-  const firstTimeRow   = repeatAnalysis.find(r => r.caller_type === '初回')
-  const totalCallers   = repeatAnalysis.reduce((s, r) => s + Number(r.caller_count), 0)
-  const totalCallCount = repeatAnalysis.reduce((s, r) => s + Number(r.call_count), 0)
-
+  // リピーター
+  const repeaterRow  = repeatAnalysis.find(r => r.caller_type === 'リピーター')
+  const firstTimeRow = repeatAnalysis.find(r => r.caller_type === '初回')
+  const totalCallers = repeatAnalysis.reduce((s, r) => s + Number(r.caller_count), 0)
   const callerPieData = repeatAnalysis.map(r => ({ name: r.caller_type, value: Number(r.caller_count) }))
   const callPieData   = repeatAnalysis.map(r => ({ name: r.caller_type, value: Number(r.call_count) }))
 
@@ -140,16 +222,57 @@ export default function StatsClient({
     <div className="max-w-6xl mx-auto space-y-6">
       <h1 className="text-xl font-bold text-slate-800">分析</h1>
 
+      {/* ブランドフィルター + 期間 + 内線除外 */}
+      <div className="bg-white rounded-xl shadow p-3 space-y-2">
+        {/* 期間選択 */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-xs text-slate-400 w-12 shrink-0">期間</span>
+          {PERIOD_OPTIONS.map(opt => (
+            <button key={opt.value} onClick={() => navPeriod(opt.value)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${period === opt.value ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+              {opt.label}
+            </button>
+          ))}
+          {period === 'custom' && (
+            <div className="flex items-center gap-1 ml-2">
+              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="border rounded px-2 py-1 text-xs" />
+              <span className="text-xs text-slate-400">〜</span>
+              <input type="date" value={customTo}   onChange={e => setCustomTo(e.target.value)}   className="border rounded px-2 py-1 text-xs" />
+              <button onClick={() => navPeriod('custom', customFrom, customTo)}
+                className="px-2 py-1 rounded bg-blue-600 text-white text-xs">適用</button>
+            </div>
+          )}
+        </div>
+
+        {/* ブランドフィルター */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-xs text-slate-400 w-12 shrink-0">ブランド</span>
+          <button onClick={toggleAll}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isAll ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+            全体
+          </button>
+          <div className="w-px h-5 bg-slate-200" />
+          {BRANDS.map(brand => (
+            <button key={brand.id} onClick={() => toggleBrand(brand.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${selected.has(brand.id) ? brand.active : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+              {brand.label}
+            </button>
+          ))}
+          {!isAll && <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-slate-600">✕</button>}
+          <button onClick={() => setExcludeInt(v => !v)} className={`ml-auto px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${excludeInt ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+            {excludeInt ? '内線除外中' : '内線含む'}
+          </button>
+        </div>
+      </div>
+
       {/* 曜日別 + 不在時間帯ランキング */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">曜日別着信数（過去1年）</h2>
+          <h2 className="text-sm font-bold text-slate-700 mb-3">曜日別着信数</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={dowData}>
-              <XAxis dataKey="label" tick={{ fontSize: 13 }} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip />
-              <Bar dataKey="answered" stackId="a" fill="#3b82f6" name="応答" />
+              <XAxis dataKey="label" tick={{ fontSize: 13 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip />
+              <Bar dataKey="answered"  stackId="a" fill="#3b82f6" name="応答" />
               <Bar dataKey="no_answer" stackId="a" fill="#f87171" name="不在" />
             </BarChart>
           </ResponsiveContainer>
@@ -163,7 +286,7 @@ export default function StatsClient({
                 <span className={`w-5 text-xs font-bold text-center shrink-0 ${i < 3 ? 'text-red-500' : 'text-slate-400'}`}>{i + 1}</span>
                 <span className="w-10 text-sm text-slate-600 shrink-0">{r.hour}</span>
                 <div className="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden">
-                  <div className="h-full bg-red-400 rounded-full" style={{ width: `${Math.round(r.missed / (missedRanking[0].missed || 1) * 100)}%` }} />
+                  <div className="h-full bg-red-400 rounded-full" style={{ width: `${Math.round(r.missed / (missedRanking[0]?.missed || 1) * 100)}%` }} />
                 </div>
                 <span className="text-xs text-slate-500 w-14 text-right shrink-0">{r.missed.toLocaleString()}件</span>
               </div>
@@ -177,7 +300,6 @@ export default function StatsClient({
         <div className="bg-white rounded-xl shadow p-4">
           <h2 className="text-sm font-bold text-slate-700 mb-4">リピーター分析（全期間）</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-            {/* 数値サマリー */}
             <div className="space-y-3">
               {repeatAnalysis.map(r => (
                 <div key={r.caller_type} className="flex items-start gap-3">
@@ -185,41 +307,31 @@ export default function StatsClient({
                   <div>
                     <div className="text-sm font-semibold text-slate-700">{r.caller_type}</div>
                     <div className="text-xs text-slate-400">
-                      {Number(r.caller_count).toLocaleString()} 番号 ·{' '}
-                      {Number(r.call_count).toLocaleString()} 着信
-                      {totalCallers > 0 && (
-                        <span className="ml-1 text-slate-500 font-medium">
-                          （{Math.round(Number(r.caller_count) / totalCallers * 100)}%）
-                        </span>
-                      )}
+                      {Number(r.caller_count).toLocaleString()} 番号 · {Number(r.call_count).toLocaleString()} 着信
+                      {totalCallers > 0 && <span className="ml-1 font-medium text-slate-500">（{Math.round(Number(r.caller_count) / totalCallers * 100)}%）</span>}
                     </div>
                   </div>
                 </div>
               ))}
               {repeaterRow && firstTimeRow && (
                 <div className="text-xs text-slate-400 pt-2 border-t">
-                  リピーター1人あたり平均{' '}
-                  <span className="font-semibold text-slate-600">
-                    {(Number(repeaterRow.call_count) / Number(repeaterRow.caller_count)).toFixed(1)}回
-                  </span>{' '}着信
+                  リピーター1人あたり平均 <span className="font-semibold text-slate-600">{(Number(repeaterRow.call_count) / Number(repeaterRow.caller_count)).toFixed(1)}回</span>着信
                 </div>
               )}
             </div>
-            {/* 発信元番号の比率 */}
             <div className="flex flex-col items-center">
               <div className="text-xs text-slate-500 mb-2">発信元番号の比率</div>
               <PieChart width={160} height={160}>
-                <Pie data={callerPieData} cx={80} cy={80} innerRadius={40} outerRadius={70} dataKey="value" label={(props) => `${props.name ?? ''} ${(((props.percent) ?? 0) * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
+                <Pie data={callerPieData} cx={80} cy={80} innerRadius={40} outerRadius={70} dataKey="value" label={(p) => `${p.name ?? ''} ${(((p.percent) ?? 0) * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
                   {callerPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
                 <Tooltip />
               </PieChart>
             </div>
-            {/* 着信件数の比率 */}
             <div className="flex flex-col items-center">
               <div className="text-xs text-slate-500 mb-2">着信件数の比率</div>
               <PieChart width={160} height={160}>
-                <Pie data={callPieData} cx={80} cy={80} innerRadius={40} outerRadius={70} dataKey="value" label={(props) => `${props.name ?? ''} ${(((props.percent) ?? 0) * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
+                <Pie data={callPieData} cx={80} cy={80} innerRadius={40} outerRadius={70} dataKey="value" label={(p) => `${p.name ?? ''} ${(((p.percent) ?? 0) * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
                   {callPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
                 <Tooltip />
@@ -232,22 +344,20 @@ export default function StatsClient({
       {/* 通話時間の分布 */}
       {sortedDist.length > 0 && (
         <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">通話時間の分布（応答のみ）</h2>
+          <h2 className="text-sm font-bold text-slate-700 mb-3">通話時間の分布（応答のみ・全期間）</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={sortedDist}>
-              <XAxis dataKey="bucket" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip />
+              <XAxis dataKey="bucket" tick={{ fontSize: 12 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip />
               <Bar dataKey="call_count" fill="#3b82f6" name="件数" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      {/* TOP10 callers */}
-      {topCallers.length > 0 && (
+      {/* TOP10 着信番号 */}
+      {fTopCallers.length > 0 && (
         <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">着信頻度ランキング TOP10（よくかけてくる番号）</h2>
+          <h2 className="text-sm font-bold text-slate-700 mb-3">着信頻度ランキング TOP10</h2>
           <table className="w-full text-sm">
             <thead><tr className="text-xs text-slate-500 border-b">
               <th className="text-left py-2 w-8">#</th>
@@ -258,16 +368,14 @@ export default function StatsClient({
               <th className="text-right py-2">最終着信</th>
             </tr></thead>
             <tbody>
-              {topCallers.map((c, i) => (
+              {fTopCallers.map((c, i) => (
                 <tr key={c.caller} className="border-b last:border-0 hover:bg-slate-50">
                   <td className={`py-2 font-bold text-xs ${i < 3 ? 'text-amber-500' : 'text-slate-400'}`}>{i + 1}</td>
                   <td className="py-2 pr-4 font-mono text-xs">{c.caller}</td>
                   <td className="text-right py-2 pr-4 font-semibold">{Number(c.call_count).toLocaleString()}</td>
                   <td className="text-right py-2 pr-4 text-green-600">{Number(c.answered).toLocaleString()}</td>
                   <td className="text-right py-2 pr-4 text-red-500">{Number(c.no_answer).toLocaleString()}</td>
-                  <td className="text-right py-2 text-xs text-slate-400">
-                    {c.last_called_at ? new Date(c.last_called_at).toLocaleDateString('ja-JP') : '-'}
-                  </td>
+                  <td className="text-right py-2 text-xs text-slate-400">{c.last_called_at ? new Date(c.last_called_at).toLocaleDateString('ja-JP') : '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -276,11 +384,11 @@ export default function StatsClient({
       )}
 
       {/* 平均通話時間 */}
-      {avgDuration.filter(r => r.avg_sec).length > 0 && (
+      {fAvgDur.filter(r => r.avg_sec).length > 0 && (
         <div className="bg-white rounded-xl shadow p-4">
           <h2 className="text-sm font-bold text-slate-700 mb-3">平均通話時間 回線別（応答のみ）</h2>
           <div className="space-y-2">
-            {avgDuration.filter(r => r.avg_sec).map(r => {
+            {fAvgDur.filter(r => r.avg_sec).map(r => {
               const avg = Number(r.avg_sec)
               return (
                 <div key={r.line_name} className="flex items-center gap-3">
@@ -299,11 +407,11 @@ export default function StatsClient({
         </div>
       )}
 
-      {/* 時間帯×回線 ヒートマップ */}
+      {/* 時間帯×回線ヒートマップ（全期間） */}
       {hourly.length > 0 && (
         <div className="bg-white rounded-xl shadow p-4">
           <h2 className="text-sm font-bold text-slate-700 mb-3">時間帯×回線 ヒートマップ（全期間）</h2>
-          <HourLineHeatmap hourly={hourly} />
+          <HourLineHeatmap hourly={fHourly} />
         </div>
       )}
 
@@ -319,20 +427,58 @@ export default function StatsClient({
         </ResponsiveContainer>
       </div>
 
+      {/* IVR ルート分析 */}
+      {ivrSummary.length > 0 && (
+        <div className="bg-white rounded-xl shadow p-4">
+          <h2 className="text-sm font-bold text-slate-700 mb-3">IVRルート別着信数・応答率（全期間）</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="text-xs text-slate-500 border-b">
+                <th className="text-left py-2 pr-4">IVRルート</th>
+                <th className="text-right py-2 pr-4">着信数</th>
+                <th className="text-right py-2 pr-4">応答</th>
+                <th className="text-right py-2 pr-4">不在</th>
+                <th className="text-right py-2 pr-4">応答率</th>
+                <th className="py-2">分布</th>
+              </tr></thead>
+              <tbody>
+                {ivrSummary.map(r => (
+                  <tr key={r.route} className="border-b last:border-0 hover:bg-slate-50">
+                    <td className="py-2 pr-4 font-mono text-xs text-slate-600 max-w-48 truncate" title={r.route}>{r.route}</td>
+                    <td className="text-right py-2 pr-4 font-semibold">{r.call_count.toLocaleString()}</td>
+                    <td className="text-right py-2 pr-4 text-green-600">{r.answered.toLocaleString()}</td>
+                    <td className="text-right py-2 pr-4 text-red-500">{r.no_answer.toLocaleString()}</td>
+                    <td className="text-right py-2 pr-4">
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${r.rate>=80?'bg-green-100 text-green-700':r.rate>=50?'bg-yellow-100 text-yellow-700':'bg-red-100 text-red-700'}`}>{r.rate}%</span>
+                    </td>
+                    <td className="py-2 w-32">
+                      <div className="flex gap-0.5 h-3">
+                        <div className="bg-blue-400 rounded-sm" style={{ width: `${Math.round(r.answered / (ivrSummary[0]?.call_count || 1) * 100)}%` }} />
+                        <div className="bg-red-300 rounded-sm"  style={{ width: `${Math.round(r.no_answer / (ivrSummary[0]?.call_count || 1) * 100)}%` }} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* 月別トレンド */}
       <div className="bg-white rounded-xl shadow p-4">
-        <h2 className="text-sm font-bold text-slate-700 mb-3">月別応答数推移（直近12ヶ月・回線別）</h2>
+        <h2 className="text-sm font-bold text-slate-700 mb-3">月別応答数推移（回線別）</h2>
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={trendData}>
             <XAxis dataKey="month" tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip /><Legend />
-            {lines.map(l => <Line key={l} type="monotone" dataKey={l} stroke={LINE_COLORS[l] || '#94a3b8'} dot={false} strokeWidth={2} />)}
+            {trendLines.map(l => <Line key={l} type="monotone" dataKey={l} stroke={LINE_COLORS[l] || '#94a3b8'} dot={false} strokeWidth={2} />)}
           </LineChart>
         </ResponsiveContainer>
       </div>
 
       {/* 応答率 */}
       <div className="bg-white rounded-xl shadow p-4">
-        <h2 className="text-sm font-bold text-slate-700 mb-3">回線別応答率（全期間）</h2>
+        <h2 className="text-sm font-bold text-slate-700 mb-3">回線別応答率</h2>
         <div className="space-y-2">
           {rateData.map(r => (
             <div key={r.name} className="flex items-center gap-3">

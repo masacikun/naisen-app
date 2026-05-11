@@ -1,24 +1,12 @@
 'use client'
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-
-// ─── ブランド定義 ────────────────────────────────────────────────
-type Brand = { id: string; label: string; lines: string[]; active: string }
-const BRANDS: Brand[] = [
-  { id: '水炊き',     label: '水炊き・もつ鍋', lines: ['水炊き・もつ鍋'],                            active: 'bg-orange-500 text-white' },
-  { id: 'gates',      label: 'gates',           lines: ['gates', '1_gates', '西新'],                  active: 'bg-blue-600 text-white'   },
-  { id: 'SmileFood',  label: 'SmileFood',        lines: ['SmileFood'],                                  active: 'bg-emerald-600 text-white' },
-  { id: 'CoSmile',    label: 'CoSmile',          lines: ['CoSmile'],                                    active: 'bg-amber-500 text-white'  },
-  { id: 'SmileEstate',label: 'SmileEstate',      lines: ['SmileEstate'],                                active: 'bg-violet-600 text-white' },
-  { id: 'GACHA',      label: 'GACHA',            lines: ['GACHA'],                                      active: 'bg-red-600 text-white'    },
-  { id: 'クリマ',     label: 'クリマバイト',     lines: ['クリマバイト', 'スタッフ中洲', '求人中洲'],  active: 'bg-pink-600 text-white'   },
-]
-const BRAND_IDS = BRANDS.map(b => b.id)
+import { BRANDS, BRAND_IDS, getActiveLines, isInternalCaller } from '@/lib/brands'
 
 // ─── 型 ──────────────────────────────────────────────────────────
-type Call      = { status: string; duration_sec?: number; line_name?: string }
-type Monthly   = { month: string; line_name: string; call_count: number }
-type DailyRow  = { call_date: string; line_name: string; call_count: number; answered: number; no_answer: number }
+type Call     = { status: string; duration_sec?: number; line_name?: string; caller?: string }
+type Monthly  = { month: string; line_name: string; call_count: number }
+type DailyRow = { call_date: string; line_name: string; call_count: number; answered: number; no_answer: number }
 
 const LINE_COLORS: Record<string, string> = {
   'gates':'#3b82f6','SmileFood':'#10b981','CoSmile':'#f59e0b','SmileEstate':'#8b5cf6',
@@ -26,7 +14,6 @@ const LINE_COLORS: Record<string, string> = {
   'クリマバイト':'#ec4899','Central':'#6366f1','西新':'#0ea5e9','スタッフ中洲':'#f43f5e','求人中洲':'#a855f7',
 }
 
-// ─── ユーティリティ ───────────────────────────────────────────────
 function kpi(calls: { status: string }[]) {
   const total = calls.length, answered = calls.filter(c => c.status === 'ANSWERED').length
   return { total, answered, missed: calls.filter(c => c.status === 'NO ANSWER').length, rate: total ? Math.round(answered / total * 100) : 0 }
@@ -58,10 +45,14 @@ function TodayStats() {
     return () => clearInterval(id)
   }, [load])
 
+  const now = new Date()
+  const dateLabel = `${now.getMonth() + 1}/${now.getDate()}`
+
   return (
     <div className="bg-white rounded-xl shadow p-4">
       <div className="flex items-center gap-2 mb-3">
         <h2 className="text-sm font-bold text-slate-700">今日の着信</h2>
+        <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-1.5 rounded">{dateLabel}</span>
         {data ? (
           <span className="flex items-center gap-1 text-xs text-slate-400">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
@@ -74,10 +65,10 @@ function TodayStats() {
       {data ? (
         <div className="grid grid-cols-4 gap-3">
           {[
-            { label: '総着信', value: data.total, unit: '件', cls: 'text-slate-800' },
+            { label: '総着信', value: data.total,    unit: '件', cls: 'text-slate-800' },
             { label: '応答',   value: data.answered, unit: '件', cls: 'text-green-600' },
-            { label: '不在',   value: data.missed, unit: '件', cls: 'text-red-500' },
-            { label: '応答率', value: data.rate, unit: '%', cls: data.rate >= 80 ? 'text-green-600' : data.rate >= 50 ? 'text-amber-500' : 'text-red-500' },
+            { label: '不在',   value: data.missed,   unit: '件', cls: 'text-red-500'   },
+            { label: '応答率', value: data.rate,     unit: '%',  cls: data.rate >= 80 ? 'text-green-600' : data.rate >= 50 ? 'text-amber-500' : 'text-red-500' },
           ].map(k => (
             <div key={k.label} className="text-center">
               <div className="text-xs text-slate-400 mb-1">{k.label}</div>
@@ -93,6 +84,7 @@ function TodayStats() {
 }
 
 // ─── 応答率ゲージ ────────────────────────────────────────────────
+// SVG: 半円ゲージ。sweep=1 (時計回り) で左→上→右へ描く
 function GoalGauge({ rate }: { rate: number }) {
   const [goal, setGoal] = useState(80)
   const [editing, setEditing] = useState(false)
@@ -111,33 +103,36 @@ function GoalGauge({ rate }: { rate: number }) {
     setEditing(false)
   }
 
-  const pct = Math.min(Math.max(rate, 0), 100)
+  const pct  = Math.min(Math.max(rate, 0), 100)
   const gPct = Math.min(Math.max(goal, 0), 100)
 
+  // θ = π*(1-p/100): p=0→π(左端), p=50→π/2(最上部), p=100→0(右端)
   function pt(p: number) {
     const θ = Math.PI * (1 - p / 100)
     return { x: +(50 + 40 * Math.cos(θ)).toFixed(2), y: +(50 - 40 * Math.sin(θ)).toFixed(2) }
   }
 
-  const ep = pt(pct)
-  const gp = pt(gPct)
+  const ep     = pt(pct)
+  const gp     = pt(gPct)
   const gInner = { x: +(50 + 32 * Math.cos(Math.PI * (1 - gPct / 100))).toFixed(2), y: +(50 - 32 * Math.sin(Math.PI * (1 - gPct / 100))).toFixed(2) }
 
+  // sweep=1 で時計回り（左→上→右）→ 上半円を描く
   const fillPath = pct <= 0 ? null
-    : pct >= 100 ? 'M 10 50 A 40 40 0 0 0 90 50'
-    : `M 10 50 A 40 40 0 0 0 ${ep.x} ${ep.y}`
+    : pct >= 100 ? 'M 10 50 A 40 40 0 0 1 90 50'
+    : `M 10 50 A 40 40 0 0 1 ${ep.x} ${ep.y}`
 
   const fillColor = rate >= goal ? '#22c55e' : rate >= goal - 10 ? '#f59e0b' : '#ef4444'
 
   return (
     <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
       <h2 className="text-sm font-bold text-slate-700 mb-2 self-start">応答率ゲージ（今月）</h2>
-      <svg viewBox="0 0 100 58" className="w-44">
-        <path d="M 10 50 A 40 40 0 0 0 90 50" fill="none" stroke="#e2e8f0" strokeWidth="8" strokeLinecap="round" />
+      {/* viewBox: 左右4px余白, 上部はY=6まで(arc頂点y=10-stroke/2), 下部Y=64まで */}
+      <svg viewBox="-4 4 108 62" className="w-44">
+        <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#e2e8f0" strokeWidth="8" strokeLinecap="round" />
         {fillPath && <path d={fillPath} fill="none" stroke={fillColor} strokeWidth="8" strokeLinecap="round" />}
         <line x1={gInner.x} y1={gInner.y} x2={gp.x} y2={gp.y} stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" />
         <text x="50" y="47" textAnchor="middle" fontSize="15" fontWeight="bold" fill={fillColor}>{rate}%</text>
-        <text x="50" y="56" textAnchor="middle" fontSize="7" fill="#94a3b8">目標 {goal}%</text>
+        <text x="50" y="59" textAnchor="middle" fontSize="7" fill="#94a3b8">目標 {goal}%</text>
       </svg>
       <div className="mt-1">
         {editing ? (
@@ -162,17 +157,15 @@ type HeatmapDay = { call_date: string; call_count: number }
 function Heatmap({ days }: { days: HeatmapDay[] }) {
   const countMap = new Map(days.map(d => [d.call_date, d.call_count]))
   const max      = Math.max(...days.map(d => d.call_count), 1)
-
-  const today   = new Date()
-  const allDays = Array.from({ length: 365 }, (_, i) => {
+  const today    = new Date()
+  const allDays  = Array.from({ length: 365 }, (_, i) => {
     const d = new Date(today); d.setDate(today.getDate() - (364 - i))
     const s = localDate(d)
     return { date: s, count: countMap.get(s) ?? 0 }
   })
-
-  const firstDow = new Date(allDays[0].date + 'T12:00:00Z').getDay()
-  const pad      = firstDow === 0 ? 6 : firstDow - 1
-  const padded   = [...Array(pad).fill(null), ...allDays] as ({ date: string; count: number } | null)[]
+  const firstDow  = new Date(allDays[0].date + 'T12:00:00Z').getDay()
+  const pad       = firstDow === 0 ? 6 : firstDow - 1
+  const padded    = [...Array(pad).fill(null), ...allDays] as ({ date: string; count: number } | null)[]
   const totalCols = Math.ceil(padded.length / 7)
 
   function color(n: number) {
@@ -224,44 +217,49 @@ function Heatmap({ days }: { days: HeatmapDay[] }) {
 // ─── メインコンポーネント ─────────────────────────────────────────
 export default function DashboardClient({
   thisMonth, lastMonth, monthly, byLine, totalCount,
-  thisWeek, lastWeek, dailyRows, sameDayLM,
+  thisWeek, lastWeek, dailyRows, sameDayLM, lyMonth,
 }: {
-  thisMonth: Call[]; lastMonth: { status: string; line_name?: string }[]
-  monthly: Monthly[]; byLine: Call[]; totalCount: number
-  thisWeek: { status: string; line_name?: string }[]
-  lastWeek: { status: string; line_name?: string }[]
+  thisMonth: Call[]; lastMonth: { status: string; line_name?: string; caller?: string }[]
+  monthly: Monthly[]; byLine: { line_name?: string; status: string; caller?: string }[]; totalCount: number
+  thisWeek: { status: string; line_name?: string; caller?: string }[]
+  lastWeek: { status: string; line_name?: string; caller?: string }[]
   dailyRows: DailyRow[]
-  sameDayLM: { status: string; line_name?: string }[]
+  sameDayLM: { status: string; line_name?: string; caller?: string }[]
+  lyMonth:   { status: string; line_name?: string; caller?: string }[]
 }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selected, setSelected]   = useState<Set<string>>(new Set())
+  const [excludeInt, setExcludeInt] = useState(true)
 
-  function toggleAll() {
-    setSelected(prev => prev.size === 0 ? new Set(BRAND_IDS) : new Set())
-  }
   function toggleBrand(id: string) {
     setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   }
-
-  const isAll       = selected.size === 0
-  const isAllBrands = selected.size === BRAND_IDS.length
-
-  const activeLines = useMemo(() =>
-    selected.size === 0 ? null
-      : [...selected].flatMap(id => BRANDS.find(b => b.id === id)?.lines ?? [])
-  , [selected])
-
-  function fl<T extends { line_name?: string | null }>(arr: T[]): T[] {
-    return activeLines ? arr.filter(r => r.line_name && activeLines.includes(r.line_name)) : arr
+  function toggleAll() {
+    setSelected(prev => prev.size === 0 ? new Set(BRAND_IDS) : new Set())
   }
 
-  const fThisMonth  = useMemo(() => fl(thisMonth),  [thisMonth,  activeLines]) // eslint-disable-line
-  const fLastMonth  = useMemo(() => fl(lastMonth),  [lastMonth,  activeLines]) // eslint-disable-line
-  const fThisWeek   = useMemo(() => fl(thisWeek),   [thisWeek,   activeLines]) // eslint-disable-line
-  const fLastWeek   = useMemo(() => fl(lastWeek),   [lastWeek,   activeLines]) // eslint-disable-line
-  const fByLine     = useMemo(() => fl(byLine),     [byLine,     activeLines]) // eslint-disable-line
-  const fSameDayLM  = useMemo(() => fl(sameDayLM),  [sameDayLM,  activeLines]) // eslint-disable-line
-  const fMonthly    = useMemo(() => activeLines ? monthly.filter(r => activeLines.includes(r.line_name)) : monthly, [monthly, activeLines])
-  const fDailyRows  = useMemo(() => activeLines ? dailyRows.filter(r => activeLines.includes(r.line_name)) : dailyRows, [dailyRows, activeLines])
+  const isAll = selected.size === 0
+
+  const activeLines = useMemo(() => getActiveLines(selected), [selected])
+
+  function flLine<T extends { line_name?: string | null }>(arr: T[]): T[] {
+    return activeLines ? arr.filter(r => r.line_name && activeLines.includes(r.line_name)) : arr
+  }
+  function flInt<T extends { caller?: string | null }>(arr: T[]): T[] {
+    return excludeInt ? arr.filter(r => !isInternalCaller(r.caller)) : arr
+  }
+  function fl<T extends { line_name?: string | null; caller?: string | null }>(arr: T[]): T[] {
+    return flInt(flLine(arr))
+  }
+
+  const fThisMonth = useMemo(() => fl(thisMonth),  [thisMonth,  activeLines, excludeInt]) // eslint-disable-line
+  const fLastMonth = useMemo(() => fl(lastMonth),  [lastMonth,  activeLines, excludeInt]) // eslint-disable-line
+  const fLyMonth   = useMemo(() => fl(lyMonth),    [lyMonth,    activeLines, excludeInt]) // eslint-disable-line
+  const fThisWeek  = useMemo(() => fl(thisWeek),   [thisWeek,   activeLines, excludeInt]) // eslint-disable-line
+  const fLastWeek  = useMemo(() => fl(lastWeek),   [lastWeek,   activeLines, excludeInt]) // eslint-disable-line
+  const fByLine    = useMemo(() => fl(byLine),     [byLine,     activeLines, excludeInt]) // eslint-disable-line
+  const fSameDayLM = useMemo(() => fl(sameDayLM),  [sameDayLM,  activeLines, excludeInt]) // eslint-disable-line
+  const fMonthly   = useMemo(() => activeLines ? monthly.filter(r => activeLines.includes(r.line_name)) : monthly, [monthly, activeLines])
+  const fDailyRows = useMemo(() => activeLines ? dailyRows.filter(r => activeLines.includes(r.line_name)) : dailyRows, [dailyRows, activeLines])
 
   const heatmap = useMemo(() => {
     const m = new Map<string, number>()
@@ -291,9 +289,9 @@ export default function DashboardClient({
       .sort((a, b) => b.week.localeCompare(a.week)).slice(0, 8).reverse()
   }, [fDailyRows])
 
-  const cur      = kpi(fThisMonth), prv = kpi(fLastMonth)
-  const curW     = kpi(fThisWeek),  prvW = kpi(fLastWeek)
-  const sdlm     = kpi(fSameDayLM)
+  const cur    = kpi(fThisMonth), prv = kpi(fLastMonth), ly = kpi(fLyMonth)
+  const curW   = kpi(fThisWeek), prvW = kpi(fLastWeek)
+  const sdlm   = kpi(fSameDayLM)
 
   const chartData = useMemo(() => {
     const acc: Record<string, Record<string, number | string>> = {}
@@ -320,10 +318,10 @@ export default function DashboardClient({
   }, [fByLine])
 
   const kpiItems = [
-    { label: '総着信',  value: cur.total,   prev: prv.total,   sdlm: sdlm.total,   week: curW.total,   weekPrev: prvW.total,   unit: '件' },
-    { label: '応答',   value: cur.answered, prev: prv.answered, sdlm: sdlm.answered, week: curW.answered, weekPrev: prvW.answered, unit: '件' },
-    { label: '不在',   value: cur.missed,   prev: prv.missed,   sdlm: sdlm.missed,   week: curW.missed,   weekPrev: prvW.missed,   unit: '件', rev: true },
-    { label: '応答率', value: cur.rate,     prev: prv.rate,     sdlm: sdlm.rate,     week: curW.rate,     weekPrev: prvW.rate,     unit: '%'  },
+    { label: '総着信',  value: cur.total,   prv: prv.total,   ly: ly.total,   sdlm: sdlm.total,   week: curW.total,   weekPrv: prvW.total,   unit: '件' },
+    { label: '応答',   value: cur.answered, prv: prv.answered, ly: ly.answered, sdlm: sdlm.answered, week: curW.answered, weekPrv: prvW.answered, unit: '件' },
+    { label: '不在',   value: cur.missed,   prv: prv.missed,   ly: ly.missed,   sdlm: sdlm.missed,   week: curW.missed,   weekPrv: prvW.missed,   unit: '件', rev: true },
+    { label: '応答率', value: cur.rate,     prv: prv.rate,     ly: ly.rate,     sdlm: sdlm.rate,     week: curW.rate,     weekPrv: prvW.rate,     unit: '%'  },
   ]
 
   return (
@@ -337,34 +335,31 @@ export default function DashboardClient({
 
       {/* 今日のリアルタイム + ゲージ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-2">
-          <TodayStats />
-        </div>
+        <div className="md:col-span-2"><TodayStats /></div>
         <GoalGauge rate={cur.rate} />
       </div>
 
-      {/* ブランドフィルター */}
+      {/* ブランドフィルター + 内線除外 */}
       <div className="bg-white rounded-xl shadow p-3 flex flex-wrap gap-2 items-center">
         <span className="text-xs text-slate-400 mr-1">ブランド</span>
-        <button
-          onClick={toggleAll}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isAll || isAllBrands ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-        >
+        <button onClick={toggleAll}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isAll ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
           全体
         </button>
         <div className="w-px h-5 bg-slate-200 mx-1" />
         {BRANDS.map(brand => (
-          <button
-            key={brand.id}
-            onClick={() => toggleBrand(brand.id)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${selected.has(brand.id) ? brand.active : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-          >
+          <button key={brand.id} onClick={() => toggleBrand(brand.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${selected.has(brand.id) ? brand.active : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
             {brand.label}
           </button>
         ))}
-        {!isAll && (
-          <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-slate-400 hover:text-slate-600">✕ リセット</button>
-        )}
+        {!isAll && <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-slate-600">✕ リセット</button>}
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={() => setExcludeInt(v => !v)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${excludeInt ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+            {excludeInt ? '内線除外中' : '内線含む'}
+          </button>
+        </div>
       </div>
 
       {/* KPI カード */}
@@ -373,11 +368,14 @@ export default function DashboardClient({
           <div key={k.label} className="bg-white rounded-xl shadow p-4">
             <div className="text-xs text-slate-500 mb-1">{k.label}（今月）</div>
             <div className="text-2xl font-bold text-slate-800">{k.value}<span className="text-sm font-normal ml-1">{k.unit}</span></div>
-            <div className="text-xs text-slate-400 mt-1">先月比 <Delta cur={k.value} prv={k.prev} reverse={k.rev} /></div>
-            <div className="text-xs text-slate-400">先月同日 <span className="text-slate-600 font-medium">{k.sdlm}{k.unit}</span> <Delta cur={k.value} prv={k.sdlm} reverse={k.rev} /></div>
+            <div className="text-xs text-slate-400 mt-1 flex gap-3">
+              <span>先月比 <Delta cur={k.value} prv={k.prv} reverse={k.rev} /></span>
+              <span>前年比 <Delta cur={k.value} prv={k.ly}  reverse={k.rev} /></span>
+            </div>
+            <div className="text-xs text-slate-400">先月同日 <span className="text-slate-600 font-medium">{k.sdlm}{k.unit}</span></div>
             <div className="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
               <span>今週 <span className="font-semibold text-slate-700">{k.week}{k.unit}</span></span>
-              <Delta cur={k.week} prv={k.weekPrev} reverse={k.rev} />
+              <Delta cur={k.week} prv={k.weekPrv} reverse={k.rev} />
             </div>
           </div>
         ))}

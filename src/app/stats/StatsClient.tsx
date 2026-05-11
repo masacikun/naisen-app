@@ -1,11 +1,14 @@
 'use client'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts'
+import { useMemo } from 'react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Legend, PieChart, Pie, Cell } from 'recharts'
 
-type Hourly      = { hour: number; line_name: string; call_count: number; answered: number }
-type Monthly     = { month: string; line_name: string; call_count: number; total_sec: number; status: string }
-type DowData     = { label: string; total: number; answered: number; no_answer: number }
-type TopCaller   = { caller: string; call_count: number; answered: number; no_answer: number; last_called_at: string }
-type AvgDuration = { line_name: string; answered_count: number; avg_sec: number; max_sec: number }
+type Hourly        = { hour: number; line_name: string; call_count: number; answered: number }
+type Monthly       = { month: string; line_name: string; call_count: number; total_sec: number; status: string }
+type DowData       = { label: string; total: number; answered: number; no_answer: number }
+type TopCaller     = { caller: string; call_count: number; answered: number; no_answer: number; last_called_at: string }
+type AvgDuration   = { line_name: string; answered_count: number; avg_sec: number; max_sec: number }
+type DurationDist  = { bucket: string; sort_order: number; call_count: number }
+type RepeatAnalysis = { caller_type: string; caller_count: number; call_count: number }
 
 const LINE_COLORS: Record<string, string> = {
   'gates':'#3b82f6','SmileFood':'#10b981','CoSmile':'#f59e0b','SmileEstate':'#8b5cf6',
@@ -13,15 +16,80 @@ const LINE_COLORS: Record<string, string> = {
   'クリマバイト':'#ec4899','Central':'#6366f1',
 }
 
+const PIE_COLORS = ['#3b82f6', '#f59e0b']
+
 function fmtSec(s: number) {
   if (!s) return '-'
   const m = Math.floor(s / 60)
   return m ? `${m}分${s % 60 ? s % 60 + '秒' : ''}` : `${s}秒`
 }
 
-export default function StatsClient({ hourly, monthly, dowData, topCallers, avgDuration }: {
+// 時間帯×回線ヒートマップ
+function HourLineHeatmap({ hourly }: { hourly: Hourly[] }) {
+  const lines = useMemo(() => Array.from(new Set(hourly.map(r => r.line_name))).sort(), [hourly])
+  const maxCount = useMemo(() => Math.max(...hourly.map(r => r.call_count), 1), [hourly])
+
+  function cellColor(n: number) {
+    if (n === 0) return '#f8fafc'
+    const r = n / maxCount
+    if (r < 0.2) return '#dbeafe'; if (r < 0.4) return '#93c5fd'
+    if (r < 0.6) return '#60a5fa'; if (r < 0.8) return '#3b82f6'; return '#1d4ed8'
+  }
+
+  const dataMap = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of hourly) m.set(`${r.hour}|${r.line_name}`, r.call_count)
+    return m
+  }, [hourly])
+
+  if (lines.length === 0) return null
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="text-xs border-collapse w-full">
+        <thead>
+          <tr>
+            <th className="text-left px-2 py-1 text-slate-400 font-normal w-24">回線 ＼ 時間</th>
+            {Array.from({ length: 24 }, (_, h) => (
+              <th key={h} className="px-1 py-1 text-slate-400 font-normal text-center w-8">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map(line => (
+            <tr key={line}>
+              <td className="px-2 py-1 text-slate-600 font-medium whitespace-nowrap">{line}</td>
+              {Array.from({ length: 24 }, (_, h) => {
+                const n = dataMap.get(`${h}|${line}`) ?? 0
+                return (
+                  <td key={h} title={`${line} ${h}時: ${n}件`}
+                    style={{ background: cellColor(n), width: 28, height: 22 }}
+                    className="text-center border border-white/50 rounded">
+                    {n > 0 && <span style={{ color: n / maxCount > 0.5 ? '#fff' : '#1e40af', fontSize: 9 }}>{n}</span>}
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="flex items-center gap-1 mt-2 justify-end">
+        <span className="text-xs text-slate-400">少</span>
+        {['#f8fafc','#dbeafe','#93c5fd','#60a5fa','#3b82f6','#1d4ed8'].map(c => (
+          <div key={c} style={{ width: 12, height: 12, background: c, borderRadius: 2 }} />
+        ))}
+        <span className="text-xs text-slate-400">多</span>
+      </div>
+    </div>
+  )
+}
+
+export default function StatsClient({
+  hourly, monthly, dowData, topCallers, avgDuration, durationDist, repeatAnalysis,
+}: {
   hourly: Hourly[]; monthly: Monthly[]; dowData: DowData[]
   topCallers: TopCaller[]; avgDuration: AvgDuration[]
+  durationDist: DurationDist[]; repeatAnalysis: RepeatAnalysis[]
 }) {
   // 時間帯別
   const hourlyTotal = Array.from({ length: 24 }, (_, h) => {
@@ -55,6 +123,18 @@ export default function StatsClient({ hourly, monthly, dowData, topCallers, avgD
 
   // 平均通話時間
   const maxAvg = Math.max(...avgDuration.map(r => Number(r.avg_sec) || 0), 1)
+
+  // 通話時間分布
+  const sortedDist = [...durationDist].sort((a, b) => a.sort_order - b.sort_order)
+
+  // リピーター分析
+  const repeaterRow    = repeatAnalysis.find(r => r.caller_type === 'リピーター')
+  const firstTimeRow   = repeatAnalysis.find(r => r.caller_type === '初回')
+  const totalCallers   = repeatAnalysis.reduce((s, r) => s + Number(r.caller_count), 0)
+  const totalCallCount = repeatAnalysis.reduce((s, r) => s + Number(r.call_count), 0)
+
+  const callerPieData = repeatAnalysis.map(r => ({ name: r.caller_type, value: Number(r.caller_count) }))
+  const callPieData   = repeatAnalysis.map(r => ({ name: r.caller_type, value: Number(r.call_count) }))
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -91,6 +171,78 @@ export default function StatsClient({ hourly, monthly, dowData, topCallers, avgD
           </div>
         </div>
       </div>
+
+      {/* リピーター分析 */}
+      {repeatAnalysis.length > 0 && (
+        <div className="bg-white rounded-xl shadow p-4">
+          <h2 className="text-sm font-bold text-slate-700 mb-4">リピーター分析（全期間）</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+            {/* 数値サマリー */}
+            <div className="space-y-3">
+              {repeatAnalysis.map(r => (
+                <div key={r.caller_type} className="flex items-start gap-3">
+                  <div className={`w-3 h-3 rounded-full mt-1 shrink-0 ${r.caller_type === 'リピーター' ? 'bg-amber-400' : 'bg-blue-400'}`} />
+                  <div>
+                    <div className="text-sm font-semibold text-slate-700">{r.caller_type}</div>
+                    <div className="text-xs text-slate-400">
+                      {Number(r.caller_count).toLocaleString()} 番号 ·{' '}
+                      {Number(r.call_count).toLocaleString()} 着信
+                      {totalCallers > 0 && (
+                        <span className="ml-1 text-slate-500 font-medium">
+                          （{Math.round(Number(r.caller_count) / totalCallers * 100)}%）
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {repeaterRow && firstTimeRow && (
+                <div className="text-xs text-slate-400 pt-2 border-t">
+                  リピーター1人あたり平均{' '}
+                  <span className="font-semibold text-slate-600">
+                    {(Number(repeaterRow.call_count) / Number(repeaterRow.caller_count)).toFixed(1)}回
+                  </span>{' '}着信
+                </div>
+              )}
+            </div>
+            {/* 発信元番号の比率 */}
+            <div className="flex flex-col items-center">
+              <div className="text-xs text-slate-500 mb-2">発信元番号の比率</div>
+              <PieChart width={160} height={160}>
+                <Pie data={callerPieData} cx={80} cy={80} innerRadius={40} outerRadius={70} dataKey="value" label={(props) => `${props.name ?? ''} ${(((props.percent) ?? 0) * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
+                  {callerPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </div>
+            {/* 着信件数の比率 */}
+            <div className="flex flex-col items-center">
+              <div className="text-xs text-slate-500 mb-2">着信件数の比率</div>
+              <PieChart width={160} height={160}>
+                <Pie data={callPieData} cx={80} cy={80} innerRadius={40} outerRadius={70} dataKey="value" label={(props) => `${props.name ?? ''} ${(((props.percent) ?? 0) * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
+                  {callPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 通話時間の分布 */}
+      {sortedDist.length > 0 && (
+        <div className="bg-white rounded-xl shadow p-4">
+          <h2 className="text-sm font-bold text-slate-700 mb-3">通話時間の分布（応答のみ）</h2>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={sortedDist}>
+              <XAxis dataKey="bucket" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip />
+              <Bar dataKey="call_count" fill="#3b82f6" name="件数" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* TOP10 callers */}
       {topCallers.length > 0 && (
@@ -144,6 +296,14 @@ export default function StatsClient({ hourly, monthly, dowData, topCallers, avgD
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* 時間帯×回線 ヒートマップ */}
+      {hourly.length > 0 && (
+        <div className="bg-white rounded-xl shadow p-4">
+          <h2 className="text-sm font-bold text-slate-700 mb-3">時間帯×回線 ヒートマップ（全期間）</h2>
+          <HourLineHeatmap hourly={hourly} />
         </div>
       )}
 

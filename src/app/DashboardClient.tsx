@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 // ─── ブランド定義 ────────────────────────────────────────────────
@@ -40,6 +40,121 @@ function Delta({ cur, prv, reverse = false }: { cur: number; prv: number; revers
 
 function localDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// ─── 今日のリアルタイム統計 ──────────────────────────────────────
+type TodayData = { total: number; answered: number; missed: number; rate: number; updatedAt: string }
+
+function TodayStats() {
+  const [data, setData] = useState<TodayData | null>(null)
+
+  const load = useCallback(() => {
+    fetch('/api/today-stats').then(r => r.json()).then(setData).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    load()
+    const id = setInterval(load, 30000)
+    return () => clearInterval(id)
+  }, [load])
+
+  return (
+    <div className="bg-white rounded-xl shadow p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <h2 className="text-sm font-bold text-slate-700">今日の着信</h2>
+        {data ? (
+          <span className="flex items-center gap-1 text-xs text-slate-400">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
+            {data.updatedAt} 更新
+          </span>
+        ) : (
+          <span className="text-xs text-slate-400 animate-pulse">読み込み中…</span>
+        )}
+      </div>
+      {data ? (
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            { label: '総着信', value: data.total, unit: '件', cls: 'text-slate-800' },
+            { label: '応答',   value: data.answered, unit: '件', cls: 'text-green-600' },
+            { label: '不在',   value: data.missed, unit: '件', cls: 'text-red-500' },
+            { label: '応答率', value: data.rate, unit: '%', cls: data.rate >= 80 ? 'text-green-600' : data.rate >= 50 ? 'text-amber-500' : 'text-red-500' },
+          ].map(k => (
+            <div key={k.label} className="text-center">
+              <div className="text-xs text-slate-400 mb-1">{k.label}</div>
+              <div className={`text-xl font-bold ${k.cls}`}>{k.value}<span className="text-xs font-normal ml-0.5">{k.unit}</span></div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="h-12 bg-slate-100 rounded animate-pulse" />
+      )}
+    </div>
+  )
+}
+
+// ─── 応答率ゲージ ────────────────────────────────────────────────
+function GoalGauge({ rate }: { rate: number }) {
+  const [goal, setGoal] = useState(80)
+  const [editing, setEditing] = useState(false)
+  const [input, setInput] = useState('')
+
+  useEffect(() => {
+    const v = localStorage.getItem('naisen_goal_rate')
+    if (v) setGoal(parseInt(v))
+  }, [])
+
+  function saveGoal() {
+    const v = parseInt(input)
+    if (v >= 1 && v <= 100) {
+      setGoal(v); localStorage.setItem('naisen_goal_rate', String(v))
+    }
+    setEditing(false)
+  }
+
+  const pct = Math.min(Math.max(rate, 0), 100)
+  const gPct = Math.min(Math.max(goal, 0), 100)
+
+  function pt(p: number) {
+    const θ = Math.PI * (1 - p / 100)
+    return { x: +(50 + 40 * Math.cos(θ)).toFixed(2), y: +(50 - 40 * Math.sin(θ)).toFixed(2) }
+  }
+
+  const ep = pt(pct)
+  const gp = pt(gPct)
+  const gInner = { x: +(50 + 32 * Math.cos(Math.PI * (1 - gPct / 100))).toFixed(2), y: +(50 - 32 * Math.sin(Math.PI * (1 - gPct / 100))).toFixed(2) }
+
+  const fillPath = pct <= 0 ? null
+    : pct >= 100 ? 'M 10 50 A 40 40 0 0 0 90 50'
+    : `M 10 50 A 40 40 0 0 0 ${ep.x} ${ep.y}`
+
+  const fillColor = rate >= goal ? '#22c55e' : rate >= goal - 10 ? '#f59e0b' : '#ef4444'
+
+  return (
+    <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
+      <h2 className="text-sm font-bold text-slate-700 mb-2 self-start">応答率ゲージ（今月）</h2>
+      <svg viewBox="0 0 100 58" className="w-44">
+        <path d="M 10 50 A 40 40 0 0 0 90 50" fill="none" stroke="#e2e8f0" strokeWidth="8" strokeLinecap="round" />
+        {fillPath && <path d={fillPath} fill="none" stroke={fillColor} strokeWidth="8" strokeLinecap="round" />}
+        <line x1={gInner.x} y1={gInner.y} x2={gp.x} y2={gp.y} stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" />
+        <text x="50" y="47" textAnchor="middle" fontSize="15" fontWeight="bold" fill={fillColor}>{rate}%</text>
+        <text x="50" y="56" textAnchor="middle" fontSize="7" fill="#94a3b8">目標 {goal}%</text>
+      </svg>
+      <div className="mt-1">
+        {editing ? (
+          <div className="flex items-center gap-1">
+            <input autoFocus value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') saveGoal(); if (e.key === 'Escape') setEditing(false) }}
+              placeholder="1-100" className="border rounded px-2 py-0.5 text-xs w-20 text-center" />
+            <button onClick={saveGoal} className="px-2 py-0.5 rounded bg-blue-600 text-white text-xs">設定</button>
+            <button onClick={() => setEditing(false)} className="px-1 py-0.5 text-xs text-slate-400">✕</button>
+          </div>
+        ) : (
+          <button onClick={() => { setInput(String(goal)); setEditing(true) }}
+            className="text-xs text-slate-400 hover:text-slate-600 underline">目標を変更</button>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ─── ヒートマップ ────────────────────────────────────────────────
@@ -109,20 +224,18 @@ function Heatmap({ days }: { days: HeatmapDay[] }) {
 // ─── メインコンポーネント ─────────────────────────────────────────
 export default function DashboardClient({
   thisMonth, lastMonth, monthly, byLine, totalCount,
-  thisWeek, lastWeek, dailyRows,
+  thisWeek, lastWeek, dailyRows, sameDayLM,
 }: {
   thisMonth: Call[]; lastMonth: { status: string; line_name?: string }[]
   monthly: Monthly[]; byLine: Call[]; totalCount: number
   thisWeek: { status: string; line_name?: string }[]
   lastWeek: { status: string; line_name?: string }[]
   dailyRows: DailyRow[]
+  sameDayLM: { status: string; line_name?: string }[]
 }) {
-  // ── ブランド選択状態 ──
-  // 空 = 全体（フィルタなし），BRAND_IDS のサブセット = そのブランドのみ
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
   function toggleAll() {
-    // 全体: 一部選択中 → 全解除（全体表示）、全解除中 → 全選択
     setSelected(prev => prev.size === 0 ? new Set(BRAND_IDS) : new Set())
   }
   function toggleBrand(id: string) {
@@ -132,7 +245,6 @@ export default function DashboardClient({
   const isAll       = selected.size === 0
   const isAllBrands = selected.size === BRAND_IDS.length
 
-  // ── フィルタリング ──
   const activeLines = useMemo(() =>
     selected.size === 0 ? null
       : [...selected].flatMap(id => BRANDS.find(b => b.id === id)?.lines ?? [])
@@ -142,15 +254,15 @@ export default function DashboardClient({
     return activeLines ? arr.filter(r => r.line_name && activeLines.includes(r.line_name)) : arr
   }
 
-  const fThisMonth = useMemo(() => fl(thisMonth),  [thisMonth,  activeLines]) // eslint-disable-line
-  const fLastMonth = useMemo(() => fl(lastMonth),  [lastMonth,  activeLines]) // eslint-disable-line
-  const fThisWeek  = useMemo(() => fl(thisWeek),   [thisWeek,   activeLines]) // eslint-disable-line
-  const fLastWeek  = useMemo(() => fl(lastWeek),   [lastWeek,   activeLines]) // eslint-disable-line
-  const fByLine    = useMemo(() => fl(byLine),     [byLine,     activeLines]) // eslint-disable-line
-  const fMonthly   = useMemo(() => activeLines ? monthly.filter(r => activeLines.includes(r.line_name)) : monthly, [monthly, activeLines])
-  const fDailyRows = useMemo(() => activeLines ? dailyRows.filter(r => activeLines.includes(r.line_name)) : dailyRows, [dailyRows, activeLines])
+  const fThisMonth  = useMemo(() => fl(thisMonth),  [thisMonth,  activeLines]) // eslint-disable-line
+  const fLastMonth  = useMemo(() => fl(lastMonth),  [lastMonth,  activeLines]) // eslint-disable-line
+  const fThisWeek   = useMemo(() => fl(thisWeek),   [thisWeek,   activeLines]) // eslint-disable-line
+  const fLastWeek   = useMemo(() => fl(lastWeek),   [lastWeek,   activeLines]) // eslint-disable-line
+  const fByLine     = useMemo(() => fl(byLine),     [byLine,     activeLines]) // eslint-disable-line
+  const fSameDayLM  = useMemo(() => fl(sameDayLM),  [sameDayLM,  activeLines]) // eslint-disable-line
+  const fMonthly    = useMemo(() => activeLines ? monthly.filter(r => activeLines.includes(r.line_name)) : monthly, [monthly, activeLines])
+  const fDailyRows  = useMemo(() => activeLines ? dailyRows.filter(r => activeLines.includes(r.line_name)) : dailyRows, [dailyRows, activeLines])
 
-  // ── ヒートマップ集計（クライアント側） ──
   const heatmap = useMemo(() => {
     const m = new Map<string, number>()
     for (const r of fDailyRows) {
@@ -160,7 +272,6 @@ export default function DashboardClient({
     return Array.from(m, ([call_date, call_count]) => ({ call_date, call_count }))
   }, [fDailyRows])
 
-  // ── 週次サマリー（クライアント側） ──
   const weeklySummary = useMemo(() => {
     const dayMap = new Map<string, { call_count: number; answered: number; no_answer: number }>()
     for (const r of fDailyRows) {
@@ -180,11 +291,10 @@ export default function DashboardClient({
       .sort((a, b) => b.week.localeCompare(a.week)).slice(0, 8).reverse()
   }, [fDailyRows])
 
-  // ── KPI ──
-  const cur  = kpi(fThisMonth), prv = kpi(fLastMonth)
-  const curW = kpi(fThisWeek),  prvW = kpi(fLastWeek)
+  const cur      = kpi(fThisMonth), prv = kpi(fLastMonth)
+  const curW     = kpi(fThisWeek),  prvW = kpi(fLastWeek)
+  const sdlm     = kpi(fSameDayLM)
 
-  // ── 月別チャート ──
   const chartData = useMemo(() => {
     const acc: Record<string, Record<string, number | string>> = {}
     for (const r of fMonthly) {
@@ -196,7 +306,6 @@ export default function DashboardClient({
   }, [fMonthly])
   const topLines = useMemo(() => Array.from(new Set(fMonthly.map(r => r.line_name))).slice(0, 8), [fMonthly])
 
-  // ── 回線別サマリー ──
   const lineArr = useMemo(() => {
     const m: Record<string, { total: number; answered: number }> = {}
     for (const r of fByLine) {
@@ -211,10 +320,10 @@ export default function DashboardClient({
   }, [fByLine])
 
   const kpiItems = [
-    { label: '総着信',  value: cur.total,   prev: prv.total,   week: curW.total,   weekPrev: prvW.total,   unit: '件' },
-    { label: '応答',   value: cur.answered, prev: prv.answered, week: curW.answered, weekPrev: prvW.answered, unit: '件' },
-    { label: '不在',   value: cur.missed,   prev: prv.missed,   week: curW.missed,   weekPrev: prvW.missed,   unit: '件', rev: true },
-    { label: '応答率', value: cur.rate,     prev: prv.rate,     week: curW.rate,     weekPrev: prvW.rate,     unit: '%'  },
+    { label: '総着信',  value: cur.total,   prev: prv.total,   sdlm: sdlm.total,   week: curW.total,   weekPrev: prvW.total,   unit: '件' },
+    { label: '応答',   value: cur.answered, prev: prv.answered, sdlm: sdlm.answered, week: curW.answered, weekPrev: prvW.answered, unit: '件' },
+    { label: '不在',   value: cur.missed,   prev: prv.missed,   sdlm: sdlm.missed,   week: curW.missed,   weekPrev: prvW.missed,   unit: '件', rev: true },
+    { label: '応答率', value: cur.rate,     prev: prv.rate,     sdlm: sdlm.rate,     week: curW.rate,     weekPrev: prvW.rate,     unit: '%'  },
   ]
 
   return (
@@ -224,6 +333,14 @@ export default function DashboardClient({
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-800">ダッシュボード</h1>
         <span className="text-sm text-slate-500">DB登録件数 <span className="font-semibold text-slate-700">{totalCount.toLocaleString()} 件</span></span>
+      </div>
+
+      {/* 今日のリアルタイム + ゲージ */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2">
+          <TodayStats />
+        </div>
+        <GoalGauge rate={cur.rate} />
       </div>
 
       {/* ブランドフィルター */}
@@ -257,6 +374,7 @@ export default function DashboardClient({
             <div className="text-xs text-slate-500 mb-1">{k.label}（今月）</div>
             <div className="text-2xl font-bold text-slate-800">{k.value}<span className="text-sm font-normal ml-1">{k.unit}</span></div>
             <div className="text-xs text-slate-400 mt-1">先月比 <Delta cur={k.value} prv={k.prev} reverse={k.rev} /></div>
+            <div className="text-xs text-slate-400">先月同日 <span className="text-slate-600 font-medium">{k.sdlm}{k.unit}</span> <Delta cur={k.value} prv={k.sdlm} reverse={k.rev} /></div>
             <div className="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
               <span>今週 <span className="font-semibold text-slate-700">{k.week}{k.unit}</span></span>
               <Delta cur={k.week} prv={k.weekPrev} reverse={k.rev} />
@@ -309,7 +427,7 @@ export default function DashboardClient({
         </ResponsiveContainer>
       </div>
 
-      {/* 回線別サマリー（不在多い回線を強調） */}
+      {/* 回線別サマリー */}
       <div className="bg-white rounded-xl shadow p-4">
         <h2 className="text-sm font-bold text-slate-700 mb-3">回線別サマリー（今月）</h2>
         {lineArr.length === 0

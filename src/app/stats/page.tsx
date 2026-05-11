@@ -32,16 +32,26 @@ async function getData() {
   // 月→日 の順に並べ替え
   const dowData = [1, 2, 3, 4, 5, 6, 0].map(i => dowMap[i])
 
-  // オプション: v_top_callers / v_avg_duration（テーブル未作成なら空）
-  const { data: topCallersData, error: tcErr } = await supabaseServer.from('v_top_callers').select('*').limit(10)
-  const { data: avgDurationData, error: adErr } = await supabaseServer.from('v_avg_duration').select('*')
+  const [
+    { data: topCallersData, error: tcErr },
+    { data: avgDurationData, error: adErr },
+    { data: durationDistData, error: ddErr },
+    { data: repeatData, error: rpErr },
+  ] = await Promise.all([
+    supabaseServer.from('v_top_callers').select('*').limit(10),
+    supabaseServer.from('v_avg_duration').select('*'),
+    supabaseServer.from('v_duration_dist').select('*'),
+    supabaseServer.from('v_repeat_analysis').select('*'),
+  ])
 
   return {
-    hourly:      (hourly      ?? []) as { hour: number; line_name: string; call_count: number; answered: number }[],
-    monthly:     (monthly     ?? []) as { month: string; line_name: string; call_count: number; total_sec: number; status: string }[],
+    hourly:        (hourly      ?? []) as { hour: number; line_name: string; call_count: number; answered: number }[],
+    monthly:       (monthly     ?? []) as { month: string; line_name: string; call_count: number; total_sec: number; status: string }[],
     dowData,
-    topCallers:  tcErr ? [] : (topCallersData ?? []) as { caller: string; call_count: number; answered: number; no_answer: number; last_called_at: string }[],
-    avgDuration: adErr ? [] : (avgDurationData ?? []) as { line_name: string; answered_count: number; avg_sec: number; max_sec: number }[],
+    topCallers:    tcErr ? [] : (topCallersData ?? []) as { caller: string; call_count: number; answered: number; no_answer: number; last_called_at: string }[],
+    avgDuration:   adErr ? [] : (avgDurationData ?? []) as { line_name: string; answered_count: number; avg_sec: number; max_sec: number }[],
+    durationDist:  ddErr ? [] : (durationDistData ?? []) as { bucket: string; sort_order: number; call_count: number }[],
+    repeatAnalysis: rpErr ? [] : (repeatData ?? []) as { caller_type: string; caller_count: number; call_count: number }[],
   }
 }
 

@@ -4,10 +4,12 @@ import { usePathname } from 'next/navigation'
 const BUDGET_APP_URL  = process.env.NEXT_PUBLIC_BUDGET_APP_URL  || 'http://localhost:3000'
 const UBIREGI_APP_URL = process.env.NEXT_PUBLIC_UBIREGI_APP_URL || 'http://localhost:3001'
 const links = [
-  { href: '/',      label: 'ダッシュボード' },
-  { href: '/calls', label: '通話履歴' },
-  { href: '/stats', label: '分析' },
-  { href: '/upload', label: 'アップロード' },
+  { href: '/',        label: 'ダッシュボード' },
+  { href: '/calls',   label: '通話履歴' },
+  { href: '/missed',  label: '不在着信' },
+  { href: '/stats',   label: '分析' },
+  { href: '/report',  label: 'レポート' },
+  { href: '/upload',  label: 'アップロード' },
 ]
 export default function NavBar() {
   const pathname = usePathname()

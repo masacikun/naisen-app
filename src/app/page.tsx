@@ -13,6 +13,8 @@ async function getData() {
   const lastMonday     = new Date(thisMonday); lastMonday.setDate(thisMonday.getDate() - 7)
   const oneYearAgo     = new Date(now); oneYearAgo.setFullYear(now.getFullYear() - 1)
   const oneYearAgoStr  = oneYearAgo.toISOString().slice(0, 10)
+  const sameDayLMStart = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).toISOString()
+  const sameDayLMEnd   = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate(), 23, 59, 59).toISOString()
 
   const [
     { data: thisMonth },
@@ -23,6 +25,7 @@ async function getData() {
     { data: thisWeek },
     { data: lastWeek },
     { data: dailyRows },
+    { data: sameDayLM },
   ] = await Promise.all([
     supabaseServer.from('naisen_calls').select('status,duration_sec,line_name').gte('started_at', thisMonthStart),
     supabaseServer.from('naisen_calls').select('status,line_name').gte('started_at', lastMonthStart).lte('started_at', lastMonthEnd),
@@ -33,6 +36,8 @@ async function getData() {
     supabaseServer.from('naisen_calls').select('status,line_name').gte('started_at', lastMonday.toISOString()).lt('started_at', thisMonday.toISOString()),
     // line_name を含む生の日次データを渡す（クライアントでブランド別フィルタリング）
     supabaseServer.from('v_naisen_daily').select('call_date,line_name,call_count,answered,no_answer').gte('call_date', oneYearAgoStr).order('call_date').limit(6000),
+    // 先月同日比較
+    supabaseServer.from('naisen_calls').select('status,line_name').gte('started_at', sameDayLMStart).lte('started_at', sameDayLMEnd),
   ])
 
   return {
@@ -44,6 +49,7 @@ async function getData() {
     thisWeek:   (thisWeek   ?? []) as { status: string; line_name?: string }[],
     lastWeek:   (lastWeek   ?? []) as { status: string; line_name?: string }[],
     dailyRows:  (dailyRows  ?? []) as { call_date: string; line_name: string; call_count: number; answered: number; no_answer: number }[],
+    sameDayLM:  (sameDayLM  ?? []) as { status: string; line_name?: string }[],
   }
 }
 

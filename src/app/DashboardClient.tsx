@@ -16,7 +16,7 @@ function diff(cur:number,prv:number) {
   const d=cur-prv
   return <span className={d>=0?'text-green-500':'text-red-500'}>{d>=0?'▲':'▼'}{Math.abs(d)}</span>
 }
-export default function DashboardClient({thisMonth,lastMonth,monthly,byLine}:{thisMonth:Call[];lastMonth:Call[];monthly:Monthly[];byLine:Call[]}) {
+export default function DashboardClient({thisMonth,lastMonth,monthly,byLine,totalCount}:{thisMonth:Call[];lastMonth:Call[];monthly:Monthly[];byLine:Call[];totalCount:number}) {
   const cur=kpi(thisMonth), prv=kpi(lastMonth)
   const monthlyData=monthly.reduce((acc:Record<string,Record<string,number|string>>,r)=>{
     const m=r.month.slice(0,7); if(!acc[m])acc[m]={month:m}; acc[m][r.line_name]=(acc[m][r.line_name]as number||0)+r.call_count; return acc
@@ -30,7 +30,10 @@ export default function DashboardClient({thisMonth,lastMonth,monthly,byLine}:{th
   const lineArr=Object.entries(lineData).map(([name,v])=>({name,...v,rate:Math.round(v.answered/v.total*100)})).sort((a,b)=>b.total-a.total)
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-slate-800">ダッシュボード</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-slate-800">ダッシュボード</h1>
+        <span className="text-sm text-slate-500">DB登録件数 <span className="font-semibold text-slate-700">{totalCount.toLocaleString()} 件</span></span>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[{label:'総着信',value:cur.total,prev:prv.total,unit:'件'},{label:'応答',value:cur.answered,prev:prv.answered,unit:'件'},{label:'不在',value:cur.missed,prev:prv.missed,unit:'件'},{label:'応答率',value:cur.rate,prev:prv.rate,unit:'%'}].map(k=>(
           <div key={k.label} className="bg-white rounded-xl shadow p-4">

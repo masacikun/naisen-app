@@ -21,16 +21,14 @@ export default async function CallsPage({
   if (sp.status) query = query.eq('status', sp.status)
   if (sp.q)      query = query.ilike('caller', `%${sp.q}%`)
 
-  const [{ data, count }, { data: lineRows }] = await Promise.all([
+  const [{ data, count }, { data: lineRows }, { data: memoData, error: memoErr }] = await Promise.all([
     query,
-    supabaseServer
-      .from('naisen_calls')
-      .select('line_name')
-      .not('line_name', 'is', null)
-      .limit(5000),
+    supabaseServer.from('naisen_calls').select('line_name').not('line_name', 'is', null).limit(5000),
+    supabaseServer.from('caller_memo').select('caller,name,note').order('updated_at', { ascending: false }),
   ])
 
   const lineSet = Array.from(new Set((lineRows ?? []).map((l: { line_name: string }) => l.line_name))).sort() as string[]
+  const memos   = (memoErr ? [] : (memoData ?? [])) as { caller: string; name: string; note?: string }[]
 
-  return <CallsClient calls={data ?? []} total={count ?? 0} page={page} lines={lineSet} filters={sp} />
+  return <CallsClient calls={data ?? []} total={count ?? 0} page={page} lines={lineSet} filters={sp} memos={memos} />
 }

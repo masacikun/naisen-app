@@ -1,6 +1,6 @@
 'use client'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-type Call = { status: string; duration_sec: number; line_name?: string }
+type Call = { status: string; duration_sec?: number; line_name?: string }
 type Monthly = { month: string; line_name: string; call_count: number }
 const LINE_COLORS: Record<string,string> = {
   'gates':'#3b82f6','SmileFood':'#10b981','CoSmile':'#f59e0b','SmileEstate':'#8b5cf6',

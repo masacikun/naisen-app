@@ -1,15 +1,38 @@
 import { supabaseServer } from '@/lib/supabaseServer'
+import { BRANDS } from '@/lib/brands'
 import CallsClient from './CallsClient'
 
 export const dynamic = 'force-dynamic'
 
+export type CallsFilters = {
+  q?: string; from?: string; to?: string
+  brands?: string; statuses?: string
+  minDur?: string; excludeInt?: string; hasMemo?: string
+  page?: string
+}
+
 export default async function CallsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; line?: string; status?: string; q?: string }>
+  searchParams: Promise<CallsFilters>
 }) {
-  const sp = await searchParams
-  const page = parseInt(sp.page || '1'), limit = 50, offset = (page - 1) * limit
+  const sp         = await searchParams
+  const page       = Math.max(1, parseInt(sp.page || '1'))
+  const limit      = 50
+  const offset     = (page - 1) * limit
+
+  const brandIds   = sp.brands   ? sp.brands.split(',').filter(Boolean)   : []
+  const statusList = sp.statuses ? sp.statuses.split(',').filter(Boolean) : []
+  const excludeInt = sp.excludeInt !== '0'          // default ON
+  const hasMemo    = sp.hasMemo === '1'
+  const minDur     = sp.minDur ? parseInt(sp.minDur) : null
+
+  const { data: memoData } = await supabaseServer
+    .from('caller_memo')
+    .select('caller,name,note')
+    .order('updated_at', { ascending: false })
+
+  const memos = (memoData ?? []) as { caller: string; name: string; note?: string }[]
 
   let query = supabaseServer
     .from('naisen_calls')
@@ -17,18 +40,36 @@ export default async function CallsPage({
     .order('started_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
-  if (sp.line)   query = query.eq('line_name', sp.line)
-  if (sp.status) query = query.eq('status', sp.status)
-  if (sp.q)      query = query.ilike('caller', `%${sp.q}%`)
+  if (sp.q)    query = query.ilike('caller', `%${sp.q}%`)
+  if (sp.from) query = query.gte('started_at', new Date(sp.from + 'T00:00:00+09:00').toISOString())
+  if (sp.to)   query = query.lte('started_at', new Date(sp.to   + 'T23:59:59+09:00').toISOString())
 
-  const [{ data, count }, { data: lineRows }, { data: memoData, error: memoErr }] = await Promise.all([
-    query,
-    supabaseServer.from('naisen_calls').select('line_name').not('line_name', 'is', null).limit(5000),
-    supabaseServer.from('caller_memo').select('caller,name,note').order('updated_at', { ascending: false }),
-  ])
+  if (brandIds.length > 0) {
+    const activeLines = brandIds.flatMap(id => BRANDS.find(b => b.id === id)?.lines ?? [])
+    if (activeLines.length > 0) query = query.in('line_name', activeLines)
+  }
 
-  const lineSet = Array.from(new Set((lineRows ?? []).map((l: { line_name: string }) => l.line_name))).sort() as string[]
-  const memos   = (memoErr ? [] : (memoData ?? [])) as { caller: string; name: string; note?: string }[]
+  if (statusList.length > 0) query = query.in('status', statusList)
+  if (minDur)       query = query.gte('duration_sec', minDur)
+  if (excludeInt)   query = query.or('caller.is.null,caller.like.0%')
 
-  return <CallsClient calls={data ?? []} total={count ?? 0} page={page} lines={lineSet} filters={sp} memos={memos} />
+  if (hasMemo) {
+    const memoCals = memos.map(m => m.caller)
+    query = memoCals.length > 0
+      ? query.in('caller', memoCals)
+      : (query as typeof query).eq('id', -1)
+  }
+
+  const { data, count } = await query
+
+  return (
+    <CallsClient
+      calls={data ?? []}
+      total={count ?? 0}
+      page={page}
+      filters={sp}
+      memos={memos}
+      excludeIntDefault={excludeInt}
+    />
+  )
 }

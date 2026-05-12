@@ -12,7 +12,8 @@ const links = [
 ]
 
 const externalLinks = [
-  { href: 'https://naisen-app-drab.vercel.app/',              label: '電話履歴' },
+  { href: 'https://ubiregi-app.vercel.app/',                  label: 'ユビレジ' },
+  { href: 'https://budget-app-three-sandy.vercel.app/',       label: '予実管理' },
   { href: 'https://mf-accounting-sync.vercel.app/dashboard',  label: 'MF会計データ' },
 ]
 
@@ -38,9 +39,6 @@ export default function NavBar() {
                 {link.label} ↗
               </a>
             ))}
-            <span className="px-3 py-1.5 rounded text-xs font-semibold text-slate-500 border border-slate-700 cursor-not-allowed select-none">
-              ユビレジ（準備中）
-            </span>
           </div>
         </nav>
       </div>

@@ -71,7 +71,7 @@ export default function UploadClient() {
         className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
       >
         <div className="text-4xl mb-3">📂</div>
-        <p className="text-slate-600 font-medium">cdr*.csv をここにドロップ</p>
+        <p className="text-gray-600 dark:text-gray-300 font-medium">cdr*.csv をここにドロップ</p>
         <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">またはクリックしてファイルを選択</p>
         <input
           ref={inputRef}

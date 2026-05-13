@@ -145,7 +145,7 @@ function GoalGauge({ rate }: { rate: number }) {
           </div>
         ) : (
           <button onClick={() => { setInput(String(goal)); setEditing(true) }}
-            className="text-xs text-gray-400 dark:text-gray-500 hover:text-slate-600 underline">目標を変更</button>
+            className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-300 underline">目標を変更</button>
         )}
       </div>
     </div>
@@ -353,7 +353,7 @@ export default function DashboardClient({
             {brand.label}
           </button>
         ))}
-        {!isAll && <button onClick={() => setSelected(new Set())} className="text-xs text-gray-400 dark:text-gray-500 hover:text-slate-600">✕ リセット</button>}
+        {!isAll && <button onClick={() => setSelected(new Set())} className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-300">✕ リセット</button>}
         <div className="ml-auto flex items-center gap-2">
           <button onClick={() => setExcludeInt(v => !v)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${excludeInt ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
@@ -372,7 +372,7 @@ export default function DashboardClient({
               <span>先月比 <Delta cur={k.value} prv={k.prv} reverse={k.rev} /></span>
               <span>前年比 <Delta cur={k.value} prv={k.ly}  reverse={k.rev} /></span>
             </div>
-            <div className="text-xs text-gray-400 dark:text-gray-500">先月同日 <span className="text-slate-600 font-medium">{k.sdlm}{k.unit}</span></div>
+            <div className="text-xs text-gray-400 dark:text-gray-500">先月同日 <span className="text-gray-600 dark:text-gray-300 font-medium">{k.sdlm}{k.unit}</span></div>
             <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between">
               <span>今週 <span className="font-semibold text-gray-700 dark:text-gray-300">{k.week}{k.unit}</span></span>
               <Delta cur={k.week} prv={k.weekPrv} reverse={k.rev} />
@@ -401,12 +401,12 @@ export default function DashboardClient({
           <tbody>
             {weeklySummary.map(w => (
               <tr key={w.week} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
-                <td className="py-2 pr-4 text-slate-600 font-mono text-xs">{w.week}</td>
+                <td className="py-2 pr-4 text-gray-600 dark:text-gray-300 font-mono text-xs">{w.week}</td>
                 <td className="text-right py-2 pr-4">{w.total.toLocaleString()}</td>
                 <td className="text-right py-2 pr-4 text-green-600">{w.answered.toLocaleString()}</td>
                 <td className="text-right py-2 pr-4 text-red-500">{w.no_answer.toLocaleString()}</td>
                 <td className="text-right py-2">
-                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${w.rate>=80?'bg-green-100 text-green-700':w.rate>=50?'bg-yellow-100 text-yellow-700':'bg-red-100 text-red-700'}`}>{w.rate}%</span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${w.rate>=80?'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400':w.rate>=50?'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400':'bg-red-100 text-red-700'}`}>{w.rate}%</span>
                 </td>
               </tr>
             ))}
@@ -451,7 +451,7 @@ export default function DashboardClient({
                   <td className="text-right py-2 pr-4 text-green-600">{l.answered}</td>
                   <td className="text-right py-2 pr-4 text-red-500">{l.missed}</td>
                   <td className="text-right py-2">
-                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${l.rate>=80?'bg-green-100 text-green-700':l.rate>=50?'bg-yellow-100 text-yellow-700':'bg-red-100 text-red-700'}`}>{l.rate}%</span>
+                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${l.rate>=80?'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400':l.rate>=50?'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400':'bg-red-100 text-red-700'}`}>{l.rate}%</span>
                   </td>
                 </tr>
               ))}

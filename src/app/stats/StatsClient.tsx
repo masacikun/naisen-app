@@ -75,7 +75,7 @@ function HourLineHeatmap({ hourly }: { hourly: Hourly[] }) {
         <tbody>
           {lines.map(line => (
             <tr key={line}>
-              <td className="px-2 py-1 text-slate-600 font-medium whitespace-nowrap">{line}</td>
+              <td className="px-2 py-1 text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">{line}</td>
               {Array.from({ length: 24 }, (_, h) => {
                 const n = dataMap.get(`${h}|${line}`) ?? 0
                 return (
@@ -272,7 +272,7 @@ export default function StatsClient({
               {brand.label}
             </button>
           ))}
-          {!isAll && <button onClick={() => setSelected(new Set())} className="text-xs text-gray-400 dark:text-gray-500 hover:text-slate-600">✕</button>}
+          {!isAll && <button onClick={() => setSelected(new Set())} className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-300">✕</button>}
           <button onClick={() => setExcludeInt(v => !v)}
             className={`ml-auto px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${excludeInt ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
             {excludeInt ? '内線除外中' : '内線含む'}
@@ -299,7 +299,7 @@ export default function StatsClient({
             {missedRanking.map((r, i) => (
               <div key={r.hour} className="flex items-center gap-2">
                 <span className={`w-5 text-xs font-bold text-center shrink-0 ${i < 3 ? 'text-red-500' : 'text-slate-400'}`}>{i + 1}</span>
-                <span className="w-10 text-sm text-slate-600 shrink-0">{r.hour}</span>
+                <span className="w-10 text-sm text-gray-600 dark:text-gray-300 shrink-0">{r.hour}</span>
                 <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-4 overflow-hidden">
                   <div className="h-full bg-red-400 rounded-full" style={{ width: `${Math.round(r.missed / (missedRanking[0]?.missed || 1) * 100)}%` }} />
                 </div>
@@ -333,7 +333,7 @@ export default function StatsClient({
               {repeaterRow && firstTimeRow && Number(repeaterRow.caller_count) > 0 && (
                 <div className="text-xs text-gray-400 dark:text-gray-500 pt-2 border-t">
                   リピーター1人あたり平均{' '}
-                  <span className="font-semibold text-slate-600">
+                  <span className="font-semibold text-gray-600 dark:text-gray-300">
                     {(Number(repeaterRow.call_count) / Number(repeaterRow.caller_count)).toFixed(1)}回
                   </span>{' '}着信
                 </div>
@@ -414,7 +414,7 @@ export default function StatsClient({
           <div className="space-y-2">
             {fAvgDur.map(r => (
               <div key={r.line_name} className="flex items-center gap-3">
-                <div className="w-28 text-sm text-right text-slate-600 shrink-0">{r.line_name || '不明'}</div>
+                <div className="w-28 text-sm text-right text-gray-600 dark:text-gray-300 shrink-0">{r.line_name || '不明'}</div>
                 <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-6 overflow-hidden">
                   <div className="h-full bg-blue-400 rounded-full flex items-center justify-end pr-2"
                     style={{ width: `${Math.max(Math.round(r.avg_sec / maxAvg * 100), 8)}%` }}>
@@ -465,12 +465,12 @@ export default function StatsClient({
               <tbody>
                 {ivrSummary.map(r => (
                   <tr key={r.route} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
-                    <td className="py-2 pr-4 font-mono text-xs text-slate-600 max-w-48 truncate" title={r.route}>{r.route}</td>
+                    <td className="py-2 pr-4 font-mono text-xs text-gray-600 dark:text-gray-300 max-w-48 truncate" title={r.route}>{r.route}</td>
                     <td className="text-right py-2 pr-4 font-semibold">{r.call_count.toLocaleString()}</td>
                     <td className="text-right py-2 pr-4 text-green-600">{r.answered.toLocaleString()}</td>
                     <td className="text-right py-2 pr-4 text-red-500">{r.no_answer.toLocaleString()}</td>
                     <td className="text-right py-2 pr-4">
-                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${r.rate>=80?'bg-green-100 text-green-700':r.rate>=50?'bg-yellow-100 text-yellow-700':'bg-red-100 text-red-700'}`}>{r.rate}%</span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${r.rate>=80?'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400':r.rate>=50?'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400':'bg-red-100 text-red-700'}`}>{r.rate}%</span>
                     </td>
                     <td className="py-2 w-32">
                       <div className="flex gap-0.5 h-3">
@@ -508,7 +508,7 @@ export default function StatsClient({
           <div className="space-y-2">
             {rateData.map(r => (
               <div key={r.name} className="flex items-center gap-3">
-                <div className="w-28 text-sm text-right text-slate-600">{r.name}</div>
+                <div className="w-28 text-sm text-right text-gray-600 dark:text-gray-300">{r.name}</div>
                 <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-5 overflow-hidden">
                   <div className={`h-full rounded-full flex items-center justify-end pr-2 text-xs font-semibold text-white ${r.rate>=80?'bg-green-500':r.rate>=50?'bg-yellow-400':'bg-red-400'}`}
                     style={{ width: `${Math.max(r.rate, 4)}%` }}>{r.rate}%</div>

@@ -162,7 +162,7 @@ export default function ReportClient({
                 <td className="text-right py-2 pr-4 text-green-600">{l.answered.toLocaleString()}</td>
                 <td className="text-right py-2 pr-4 text-red-500">{l.missed.toLocaleString()}</td>
                 <td className="text-right py-2 pr-4">
-                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${l.rate>=80?'bg-green-100 text-green-700':l.rate>=50?'bg-yellow-100 text-yellow-700':'bg-red-100 text-red-700'}`}>{l.rate}%</span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${l.rate>=80?'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400':l.rate>=50?'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400':'bg-red-100 text-red-700'}`}>{l.rate}%</span>
                 </td>
                 <td className="text-right py-2 text-gray-500 dark:text-gray-400 text-xs">{fmtSec(l.avg)}</td>
               </tr>

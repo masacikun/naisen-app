@@ -12,9 +12,9 @@ type Call = {
 type Memo = { caller: string; name: string; note?: string }
 
 const STATUS_STYLE: Record<string, string> = {
-  'ANSWERED':  'bg-green-100 text-green-700',
-  'NO ANSWER': 'bg-red-100 text-red-600',
-  'BUSY':      'bg-yellow-100 text-yellow-700',
+  'ANSWERED':  'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
+  'NO ANSWER': 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400',
+  'BUSY':      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400',
   'FAILED':    'bg-gray-100 dark:bg-gray-800 text-slate-500',
 }
 const STATUS_LABEL: Record<string, string> = {
@@ -240,7 +240,7 @@ export default function CallsClient({
           {BRANDS.map(b => (
             <button key={b.id} onClick={() => toggleBrand(b.id)}
               className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                brands.has(b.id) ? b.active : 'bg-gray-100 dark:bg-gray-800 text-slate-600 hover:bg-slate-200'
+                brands.has(b.id) ? b.active : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-slate-200'
               }`}>
               {b.label}
             </button>
@@ -316,7 +316,7 @@ export default function CallsClient({
               const isEditing = editingId === c.id
               return (
                 <tr key={c.id} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
-                  <td className="px-4 py-2 text-slate-600 whitespace-nowrap">{fmtDate(c.started_at)}</td>
+                  <td className="px-4 py-2 text-gray-600 dark:text-gray-300 whitespace-nowrap">{fmtDate(c.started_at)}</td>
                   <td className="px-4 py-2">
                     {isEditing ? (
                       <div className="flex flex-col gap-1 min-w-52">
@@ -355,7 +355,7 @@ export default function CallsClient({
                         </div>
                         {c.caller && (
                           <button onClick={() => openEdit(c.id, c.caller)}
-                            className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-slate-600 text-xs mt-0.5 transition-opacity"
+                            className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-300 text-xs mt-0.5 transition-opacity"
                             title="メモを登録">
                             ✏️
                           </button>
@@ -365,7 +365,7 @@ export default function CallsClient({
                   </td>
                   <td className="px-4 py-2 font-medium text-gray-700 dark:text-gray-300">{c.line_name || '—'}</td>
                   <td className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 max-w-48 truncate">{c.ivr_route || '—'}</td>
-                  <td className="px-4 py-2 text-center text-slate-600">{fmtSec(c.duration_sec)}</td>
+                  <td className="px-4 py-2 text-center text-gray-600 dark:text-gray-300">{fmtSec(c.duration_sec)}</td>
                   <td className="px-4 py-2 text-center">
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${STATUS_STYLE[c.status] || 'bg-gray-100 dark:bg-gray-800 text-slate-500'}`}>
                       {STATUS_LABEL[c.status] || c.status}
@@ -383,7 +383,7 @@ export default function CallsClient({
         <div className="flex justify-center gap-2">
           <button disabled={page <= 1} onClick={() => router.push(buildUrl({ page: page - 1 }))}
             className="px-3 py-1.5 rounded border text-sm disabled:opacity-40">◀</button>
-          <span className="px-3 py-1.5 text-sm text-slate-600">{page} / {totalPages}</span>
+          <span className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300">{page} / {totalPages}</span>
           <button disabled={page >= totalPages} onClick={() => router.push(buildUrl({ page: page + 1 }))}
             className="px-3 py-1.5 rounded border text-sm disabled:opacity-40">▶</button>
         </div>

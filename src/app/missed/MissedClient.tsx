@@ -83,7 +83,7 @@ function Section({ title, color, rows }: { title: string; color: 'red' | 'green'
         <tbody>
           {rows.map(r => (
             <tr key={r.id} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
-              <td className="px-4 py-2 text-slate-600 whitespace-nowrap">{fmtDate(r.started_at)}</td>
+              <td className="px-4 py-2 text-gray-600 dark:text-gray-300 whitespace-nowrap">{fmtDate(r.started_at)}</td>
               <td className="px-4 py-2">
                 {r.caller_name && <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{r.caller_name}</div>}
                 <span className="font-mono text-xs text-indigo-600 dark:text-indigo-400">{r.caller}</span>

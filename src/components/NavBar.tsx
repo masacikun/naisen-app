@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
 
 const links = [
   { href: '/',        label: 'ダッシュボード' },
@@ -19,13 +20,23 @@ const externalLinks = [
 
 export default function NavBar() {
   const pathname = usePathname()
+  const [navigating, setNavigating] = useState(false)
+
+  useEffect(() => {
+    setNavigating(false)
+  }, [pathname])
+
   return (
-    <header className="bg-slate-900 text-white shadow-lg">
+    <header className="relative bg-slate-900 text-white shadow-lg">
+      {navigating && (
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-400 animate-pulse z-50" />
+      )}
       <div className="w-full px-4 flex items-center justify-between h-14">
         <span className="font-bold text-base tracking-wide">📞 電話履歴管理</span>
         <nav className="flex items-center gap-0.5">
           {links.map(link => (
             <Link key={link.href} href={link.href}
+              onClick={() => pathname !== link.href && setNavigating(true)}
               className={`px-4 py-2 rounded text-sm font-semibold transition-colors ${
                 pathname === link.href ? 'bg-blue-600 text-white' : 'text-gray-200 hover:bg-slate-700'
               }`}>

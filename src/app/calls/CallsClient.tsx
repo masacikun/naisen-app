@@ -30,8 +30,8 @@ const DUR_OPTIONS = [
 const STATUS_OPTS = ['ANSWERED', 'NO ANSWER', 'BUSY'] as const
 
 function fmtDate(s: string) {
-  const d = new Date(s)
-  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const d = new Date(new Date(s).getTime() + 9 * 60 * 60 * 1000)
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
 }
 function fmtSec(s: number) {
   if (!s) return '-'

@@ -4,19 +4,33 @@ import DashboardClient from './DashboardClient'
 export const dynamic = 'force-dynamic'
 
 async function getData() {
-  const now = new Date()
-  const thisMonthStart  = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const lastMonthStart  = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
-  const lastMonthEnd    = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString()
-  const lyMonthStart    = new Date(now.getFullYear() - 1, now.getMonth(), 1).toISOString()
-  const lyMonthEnd      = new Date(now.getFullYear() - 1, now.getMonth() + 1, 0, 23, 59, 59).toISOString()
-  const dow             = now.getDay()
-  const thisMonday      = new Date(now); thisMonday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1)); thisMonday.setHours(0,0,0,0)
-  const lastMonday      = new Date(thisMonday); lastMonday.setDate(thisMonday.getDate() - 7)
-  const oneYearAgo      = new Date(now); oneYearAgo.setFullYear(now.getFullYear() - 1)
-  const oneYearAgoStr   = oneYearAgo.toISOString().slice(0, 10)
-  const sameDayLMStart  = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).toISOString()
-  const sameDayLMEnd    = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate(), 23, 59, 59).toISOString()
+  // Vercel runs UTC; compute all boundaries in JST (UTC+9)
+  const JST = 9 * 60 * 60 * 1000
+  const jstNow = new Date(Date.now() + JST)
+  const y  = jstNow.getUTCFullYear()
+  const mo = jstNow.getUTCMonth()
+  const d  = jstNow.getUTCDate()
+
+  // jstDay(y, m, d) → UTC ISO that equals JST midnight of that date
+  const jstDay = (year: number, month: number, day: number, h = 0, mi = 0, s = 0) =>
+    new Date(Date.UTC(year, month, day, h, mi, s) - JST).toISOString()
+
+  const thisMonthStart = jstDay(y, mo, 1)
+  const lastMonthStart = jstDay(y, mo - 1, 1)
+  const lastMonthEnd   = jstDay(y, mo, 0, 23, 59, 59)   // last day of prev month JST 23:59:59
+  const lyMonthStart   = jstDay(y - 1, mo, 1)
+  const lyMonthEnd     = jstDay(y - 1, mo + 1, 0, 23, 59, 59)
+
+  // This week's Monday in JST
+  const dow = jstNow.getUTCDay()
+  const thisMondayJST = new Date(Date.UTC(y, mo, d - (dow === 0 ? 6 : dow - 1)) - JST)
+  const lastMondayJST = new Date(thisMondayJST.getTime() - 7 * 24 * 3600 * 1000)
+  const thisMonday    = thisMondayJST.toISOString()
+  const lastMonday    = lastMondayJST.toISOString()
+
+  const oneYearAgoStr = jstDay(y - 1, mo, d).slice(0, 10)
+  const sameDayLMStart = jstDay(y, mo - 1, d)
+  const sameDayLMEnd   = jstDay(y, mo - 1, d, 23, 59, 59)
 
   const [
     { data: thisMonth },
@@ -32,12 +46,12 @@ async function getData() {
   ] = await Promise.all([
     supabaseServer.from('naisen_calls').select('status,duration_sec,line_name,caller').gte('started_at', thisMonthStart).limit(20000),
     supabaseServer.from('naisen_calls').select('status,line_name,caller').gte('started_at', lastMonthStart).lte('started_at', lastMonthEnd).limit(20000),
-    supabaseServer.from('v_naisen_monthly').select('*').gte('month', new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString()).eq('status', 'ANSWERED').order('month', { ascending: true }),
+    supabaseServer.from('v_naisen_monthly').select('*').gte('month', jstDay(y, mo - 11, 1)).eq('status', 'ANSWERED').order('month', { ascending: true }),
     // byLine: limit 大きめ（PostgRESTデフォルト1000だと全回線が取得できない）
     supabaseServer.from('naisen_calls').select('line_name,status,caller').gte('started_at', thisMonthStart).not('line_name', 'is', null).limit(20000),
     supabaseServer.from('naisen_calls').select('*', { count: 'exact', head: true }),
-    supabaseServer.from('naisen_calls').select('status,line_name,caller').gte('started_at', thisMonday.toISOString()).limit(5000),
-    supabaseServer.from('naisen_calls').select('status,line_name,caller').gte('started_at', lastMonday.toISOString()).lt('started_at', thisMonday.toISOString()).limit(5000),
+    supabaseServer.from('naisen_calls').select('status,line_name,caller').gte('started_at', thisMonday).limit(5000),
+    supabaseServer.from('naisen_calls').select('status,line_name,caller').gte('started_at', lastMonday).lt('started_at', thisMonday).limit(5000),
     supabaseServer.from('v_naisen_daily').select('call_date,line_name,call_count,answered,no_answer').gte('call_date', oneYearAgoStr).order('call_date').limit(6000),
     supabaseServer.from('naisen_calls').select('status,line_name,caller').gte('started_at', sameDayLMStart).lte('started_at', sameDayLMEnd).limit(5000),
     // 前年同月

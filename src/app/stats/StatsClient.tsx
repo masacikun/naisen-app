@@ -398,7 +398,7 @@ export default function StatsClient({
                   <td className="text-right py-2 pr-4 text-green-600">{c.answered.toLocaleString()}</td>
                   <td className="text-right py-2 pr-4 text-red-500">{c.no_answer.toLocaleString()}</td>
                   <td className="text-right py-2 text-xs text-slate-400">
-                    {c.last_called_at ? new Date(c.last_called_at).toLocaleDateString('ja-JP') : '-'}
+                    {c.last_called_at ? new Date(c.last_called_at).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '-'}
                   </td>
                 </tr>
               ))}

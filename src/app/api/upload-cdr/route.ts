@@ -75,7 +75,9 @@ function extractLineInfo(destination: string): [string | null, string | null] {
 function toTs(val: string): string | null {
   if (!val?.trim()) return null
   try {
-    const d = new Date(val)
+    // CSV dates are JST; normalise to ISO and append +09:00 for correct UTC conversion
+    const s = val.trim().replace(/\//g, '-').replace(' ', 'T')
+    const d = new Date(s + '+09:00')
     return isNaN(d.getTime()) ? null : d.toISOString()
   } catch { return null }
 }

@@ -67,7 +67,11 @@ def transform(df):
             continue
         def to_ts(val):
             if pd.isna(val) or not val: return None
-            try: return pd.Timestamp(val).isoformat()
+            try:
+                ts = pd.Timestamp(val)
+                if ts.tzinfo is None:
+                    ts = ts.tz_localize('Asia/Tokyo')
+                return ts.isoformat()
             except: return None
         records.append({
             'started_at':       to_ts(row.get('開始日時')),

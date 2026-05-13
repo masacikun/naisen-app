@@ -1,3 +1,4 @@
+export const metadata = { title: '不在着信 | 電話履歴管理' }
 import { supabaseServer } from '@/lib/supabaseServer'
 import MissedClient from './MissedClient'
 

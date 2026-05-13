@@ -1,3 +1,4 @@
+export const metadata = { title: 'ダッシュボード | 電話履歴管理' }
 import { supabaseServer } from '@/lib/supabaseServer'
 import DashboardClient from './DashboardClient'
 

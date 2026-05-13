@@ -1,3 +1,4 @@
+export const metadata = { title: 'レポート | 電話履歴管理' }
 import { supabaseServer } from '@/lib/supabaseServer'
 import ReportClient from './ReportClient'
 

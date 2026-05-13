@@ -4,27 +4,25 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 const links = [
-  { href: '/',        label: 'ダッシュボード' },
-  { href: '/calls',   label: '通話履歴' },
-  { href: '/missed',  label: '不在着信' },
-  { href: '/stats',   label: '分析' },
-  { href: '/report',  label: 'レポート' },
-  { href: '/upload',  label: 'アップロード' },
+  { href: '/',       label: 'ダッシュボード' },
+  { href: '/calls',  label: '通話履歴' },
+  { href: '/missed', label: '不在着信' },
+  { href: '/stats',  label: '分析' },
+  { href: '/report', label: 'レポート' },
+  { href: '/upload', label: 'アップロード' },
 ]
 
 const externalLinks = [
-  { href: 'https://ubiregi-app.vercel.app/',                  label: 'ユビレジ' },
-  { href: 'https://budget-app-three-sandy.vercel.app/',       label: '予実管理' },
-  { href: 'https://mf-accounting-sync.vercel.app/dashboard',  label: 'MF会計データ' },
+  { href: '/',            label: '予実管理' },
+  { href: '/u',           label: 'ユビレジ' },
+  { href: '/m/dashboard', label: 'MF会計' },
 ]
 
 export default function NavBar() {
   const pathname = usePathname()
   const [navigating, setNavigating] = useState(false)
 
-  useEffect(() => {
-    setNavigating(false)
-  }, [pathname])
+  useEffect(() => { setNavigating(false) }, [pathname])
 
   return (
     <header className="relative bg-slate-900 text-white shadow-lg">
@@ -32,22 +30,24 @@ export default function NavBar() {
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-400 animate-pulse z-50" />
       )}
       <div className="w-full px-4 flex items-center justify-between h-14">
-        <span className="font-bold text-base tracking-wide">📞 電話履歴管理</span>
+        <Link href="/" className="font-bold text-base tracking-wide text-white hover:text-slate-200 transition-colors">
+          電話履歴管理
+        </Link>
         <nav className="flex items-center gap-0.5">
           {links.map(link => (
             <Link key={link.href} href={link.href}
               onClick={() => pathname !== link.href && setNavigating(true)}
-              className={`px-4 py-2 rounded text-sm font-semibold transition-colors ${
-                pathname === link.href ? 'bg-blue-600 text-white' : 'text-gray-200 hover:bg-slate-700'
+              className={`px-3 py-2 rounded text-sm font-semibold transition-colors ${
+                pathname === link.href ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-700 hover:text-white'
               }`}>
               {link.label}
             </Link>
           ))}
-          <div className="ml-3 flex items-center gap-1 border-l border-slate-600 pl-3">
+          <div className="ml-2 flex items-center gap-1.5 border-l border-slate-600 pl-3">
             {externalLinks.map(link => (
-              <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded text-xs font-semibold text-amber-300 border border-amber-600 hover:bg-amber-600 hover:text-white transition-colors">
-                {link.label} ↗
+              <a key={link.href} href={link.href}
+                className="px-3 py-1.5 rounded text-xs font-semibold text-sky-300 border border-sky-700 hover:bg-sky-700 hover:text-white transition-colors">
+                {link.label}
               </a>
             ))}
           </div>

@@ -86,14 +86,14 @@ export default function ReportClient({
     <div className="max-w-5xl mx-auto space-y-6 report-root">
       {/* コントロールバー（印刷時非表示） */}
       <div className="flex items-center justify-between no-print">
-        <h1 className="text-xl font-bold text-slate-800">月次レポート</h1>
+        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200">月次レポート</h1>
         <div className="flex items-center gap-3">
           <select value={month} onChange={e => router.push(`${pathname}?month=${e.target.value}`)}
-            className="border rounded px-3 py-1.5 text-sm">
+            className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-3 py-1.5 text-sm">
             {monthOptions.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
           <select value={lineFilter} onChange={e => setLineFilter(e.target.value)}
-            className="border rounded px-3 py-1.5 text-sm">
+            className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-3 py-1.5 text-sm">
             <option value="">全回線</option>
             {lines.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
@@ -107,7 +107,7 @@ export default function ReportClient({
       {/* レポートヘッダー */}
       <div className="print-only hidden text-center mb-4">
         <h1 className="text-2xl font-bold">月次通話レポート　{month.replace('-', '年')}月</h1>
-        <p className="text-sm text-slate-500 mt-1">出力日: {new Date().toLocaleDateString('ja-JP')}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">出力日: {new Date().toLocaleDateString('ja-JP')}</p>
       </div>
 
       {/* KPI サマリー */}
@@ -119,8 +119,8 @@ export default function ReportClient({
           { label: '応答率', value: rate, unit: '%', cls: rate >= 80 ? 'text-green-600' : rate >= 50 ? 'text-amber-500' : 'text-red-500' },
           { label: '平均通話時間', value: fmtSec(avgSec), unit: '' },
         ].map(k => (
-          <div key={k.label} className="bg-white rounded-xl shadow p-4 text-center">
-            <div className="text-xs text-slate-500 mb-1">{k.label}</div>
+          <div key={k.label} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 text-center">
+            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">{k.label}</div>
             <div className={`text-2xl font-bold ${k.cls ?? 'text-slate-800'}`}>{k.value}<span className="text-sm font-normal ml-0.5">{k.unit}</span></div>
           </div>
         ))}
@@ -128,8 +128,8 @@ export default function ReportClient({
 
       {/* 日次トレンド */}
       {dailyChart.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">日次着信推移</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">日次着信推移</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={dailyChart}>
               <XAxis dataKey="date" tick={{ fontSize: 10 }} />
@@ -143,10 +143,10 @@ export default function ReportClient({
       )}
 
       {/* 回線別サマリー */}
-      <div className="bg-white rounded-xl shadow p-4">
-        <h2 className="text-sm font-bold text-slate-700 mb-3">回線別サマリー</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">回線別サマリー</h2>
         <table className="w-full text-sm">
-          <thead><tr className="text-xs text-slate-500 border-b">
+          <thead><tr className="text-xs text-gray-500 dark:text-gray-400 border-b">
             <th className="text-left py-2 pr-4">回線</th>
             <th className="text-right py-2 pr-4">総着信</th>
             <th className="text-right py-2 pr-4">応答</th>
@@ -156,15 +156,15 @@ export default function ReportClient({
           </tr></thead>
           <tbody>
             {lineData.map(l => (
-              <tr key={l.name} className="border-b last:border-0 hover:bg-slate-50">
-                <td className="py-2 pr-4 font-medium text-slate-700">{l.name}</td>
+              <tr key={l.name} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
+                <td className="py-2 pr-4 font-medium text-gray-700 dark:text-gray-300">{l.name}</td>
                 <td className="text-right py-2 pr-4">{l.total.toLocaleString()}</td>
                 <td className="text-right py-2 pr-4 text-green-600">{l.answered.toLocaleString()}</td>
                 <td className="text-right py-2 pr-4 text-red-500">{l.missed.toLocaleString()}</td>
                 <td className="text-right py-2 pr-4">
                   <span className={`px-2 py-0.5 rounded text-xs font-semibold ${l.rate>=80?'bg-green-100 text-green-700':l.rate>=50?'bg-yellow-100 text-yellow-700':'bg-red-100 text-red-700'}`}>{l.rate}%</span>
                 </td>
-                <td className="text-right py-2 text-slate-500 text-xs">{fmtSec(l.avg)}</td>
+                <td className="text-right py-2 text-gray-500 dark:text-gray-400 text-xs">{fmtSec(l.avg)}</td>
               </tr>
             ))}
           </tbody>
@@ -173,10 +173,10 @@ export default function ReportClient({
 
       {/* TOP着信番号 */}
       {topCallers.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">着信頻度 TOP10</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">着信頻度 TOP10</h2>
           <table className="w-full text-sm">
-            <thead><tr className="text-xs text-slate-500 border-b">
+            <thead><tr className="text-xs text-gray-500 dark:text-gray-400 border-b">
               <th className="text-left py-2 w-8">#</th>
               <th className="text-left py-2 pr-4">電話番号</th>
               <th className="text-right py-2 pr-4">着信数</th>
@@ -184,7 +184,7 @@ export default function ReportClient({
             </tr></thead>
             <tbody>
               {topCallers.map((c, i) => (
-                <tr key={c.caller} className="border-b last:border-0 hover:bg-slate-50">
+                <tr key={c.caller} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
                   <td className={`py-2 font-bold text-xs ${i < 3 ? 'text-amber-500' : 'text-slate-400'}`}>{i + 1}</td>
                   <td className="py-2 pr-4 font-mono text-xs">{c.caller}</td>
                   <td className="text-right py-2 pr-4 font-semibold">{c.total}</td>

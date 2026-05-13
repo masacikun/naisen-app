@@ -15,7 +15,7 @@ const STATUS_STYLE: Record<string, string> = {
   'ANSWERED':  'bg-green-100 text-green-700',
   'NO ANSWER': 'bg-red-100 text-red-600',
   'BUSY':      'bg-yellow-100 text-yellow-700',
-  'FAILED':    'bg-slate-100 text-slate-500',
+  'FAILED':    'bg-gray-100 dark:bg-gray-800 text-slate-500',
 }
 const STATUS_LABEL: Record<string, string> = {
   'ANSWERED': '応答', 'NO ANSWER': '不在', 'BUSY': '話中', 'FAILED': 'FAILED',
@@ -193,9 +193,9 @@ export default function CallsClient({
 
       {/* ─── ヘッダー ─── */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-800">通話履歴</h1>
+        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200">通話履歴</h1>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-500">{total.toLocaleString()} 件</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{total.toLocaleString()} 件</span>
           <button onClick={exportCsv}
             className="px-3 py-1.5 rounded bg-emerald-600 text-white text-sm hover:bg-emerald-700 font-medium">
             CSV出力
@@ -204,7 +204,7 @@ export default function CallsClient({
       </div>
 
       {/* ─── フィルターパネル ─── */}
-      <div className="bg-white rounded-xl shadow p-4 space-y-3">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 space-y-3">
 
         {/* 行1: 電話番号検索 + 日付範囲 */}
         <div className="flex flex-wrap gap-2 items-center">
@@ -212,25 +212,25 @@ export default function CallsClient({
             type="text" placeholder="電話番号で検索..."
             value={q} onChange={e => setQ(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && applySearch()}
-            className="border rounded px-3 py-1.5 text-sm flex-1 min-w-40"
+            className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-3 py-1.5 text-sm flex-1 min-w-40"
           />
           <input
             type="date" value={from}
             onChange={e => { setFrom(e.target.value); nav({ from: e.target.value }) }}
-            className="border rounded px-3 py-1.5 text-sm"
+            className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-3 py-1.5 text-sm"
           />
-          <span className="text-slate-400 text-sm">〜</span>
+          <span className="text-gray-400 dark:text-gray-500 text-sm">〜</span>
           <input
             type="date" value={to}
             onChange={e => { setTo(e.target.value); nav({ to: e.target.value }) }}
-            className="border rounded px-3 py-1.5 text-sm"
+            className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-3 py-1.5 text-sm"
           />
           <button onClick={applySearch}
-            className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700">
+            className="px-3 py-1.5 rounded bg-indigo-600 text-white text-sm hover:bg-indigo-700">
             検索
           </button>
           <button onClick={reset}
-            className="border rounded px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-50">
+            className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-800">
             リセット
           </button>
         </div>
@@ -240,7 +240,7 @@ export default function CallsClient({
           {BRANDS.map(b => (
             <button key={b.id} onClick={() => toggleBrand(b.id)}
               className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                brands.has(b.id) ? b.active : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                brands.has(b.id) ? b.active : 'bg-gray-100 dark:bg-gray-800 text-slate-600 hover:bg-slate-200'
               }`}>
               {b.label}
             </button>
@@ -251,7 +251,7 @@ export default function CallsClient({
               className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${
                 excludeInt
                   ? 'bg-slate-700 text-white border-slate-700'
-                  : 'bg-white text-slate-500 border-slate-300 hover:bg-slate-50'
+                  : 'bg-white text-gray-500 dark:text-gray-400 border-slate-300 hover:bg-slate-50'
               }`}>
               内線除外 {excludeInt ? 'ON' : 'OFF'}
             </button>
@@ -260,7 +260,7 @@ export default function CallsClient({
               className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${
                 hasMemo
                   ? 'bg-amber-500 text-white border-amber-500'
-                  : 'bg-white text-slate-500 border-slate-300 hover:bg-slate-50'
+                  : 'bg-white text-gray-500 dark:text-gray-400 border-slate-300 hover:bg-slate-50'
               }`}>
               メモあり
             </button>
@@ -270,7 +270,7 @@ export default function CallsClient({
         {/* 行3: ステータス + 通話時間 */}
         <div className="flex flex-wrap gap-4 items-center">
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500 shrink-0">ステータス:</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">ステータス:</span>
             {STATUS_OPTS.map(s => (
               <label key={s} className="flex items-center gap-1 cursor-pointer">
                 <input type="checkbox" checked={statuses.has(s)} onChange={() => toggleStatus(s)} className="rounded" />
@@ -281,10 +281,10 @@ export default function CallsClient({
             ))}
           </div>
           <div className="flex items-center gap-2 ml-auto">
-            <span className="text-xs text-slate-500 shrink-0">通話時間:</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">通話時間:</span>
             <select value={minDur}
               onChange={e => { setMinDur(e.target.value); nav({ minDur: e.target.value }) }}
-              className="border rounded px-2 py-1 text-xs">
+              className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs">
               {DUR_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
@@ -292,10 +292,10 @@ export default function CallsClient({
       </div>
 
       {/* ─── テーブル ─── */}
-      <div className="bg-white rounded-xl shadow overflow-x-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-xs text-slate-500 border-b bg-slate-50">
+            <tr className="text-xs text-gray-500 dark:text-gray-400 border-b bg-gray-50 dark:bg-gray-800">
               <th className="text-left px-4 py-2">日時</th>
               <th className="text-left px-4 py-2">発信元</th>
               <th className="text-left px-4 py-2">回線</th>
@@ -307,7 +307,7 @@ export default function CallsClient({
           <tbody>
             {calls.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-16 text-slate-400 text-sm">
+                <td colSpan={6} className="text-center py-16 text-gray-400 dark:text-gray-500 text-sm">
                   該当する通話がありません
                 </td>
               </tr>
@@ -315,18 +315,18 @@ export default function CallsClient({
               const memo      = c.caller ? memoMap.get(c.caller) : undefined
               const isEditing = editingId === c.id
               return (
-                <tr key={c.id} className="border-b last:border-0 hover:bg-slate-50">
+                <tr key={c.id} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
                   <td className="px-4 py-2 text-slate-600 whitespace-nowrap">{fmtDate(c.started_at)}</td>
                   <td className="px-4 py-2">
                     {isEditing ? (
                       <div className="flex flex-col gap-1 min-w-52">
                         <input autoFocus value={editName} onChange={e => setEditName(e.target.value)}
-                          placeholder="名前" className="border rounded px-2 py-1 text-xs w-full" />
+                          placeholder="名前" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
                         <input value={editNote} onChange={e => setEditNote(e.target.value)}
-                          placeholder="メモ（任意）" className="border rounded px-2 py-1 text-xs w-full" />
+                          placeholder="メモ（任意）" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
                         <div className="flex gap-1">
                           <button onClick={saveMemo} disabled={saving || !editName.trim()}
-                            className="px-2 py-0.5 rounded bg-blue-600 text-white text-xs disabled:opacity-40">
+                            className="px-2 py-0.5 rounded bg-indigo-600 text-white text-xs disabled:opacity-40">
                             {saving ? '…' : '保存'}
                           </button>
                           {memoMap.has(editCaller) && (
@@ -334,28 +334,28 @@ export default function CallsClient({
                               className="px-2 py-0.5 rounded bg-red-100 text-red-600 text-xs">削除</button>
                           )}
                           <button onClick={() => setEditingId(null)}
-                            className="px-2 py-0.5 rounded border text-xs text-slate-500">✕</button>
+                            className="px-2 py-0.5 rounded border text-xs text-gray-500 dark:text-gray-400">✕</button>
                         </div>
                       </div>
                     ) : (
                       <div className="flex items-start gap-1 group">
                         <div>
                           {(memo?.name || c.caller_name) && (
-                            <div className="text-slate-700 font-medium text-xs mb-0.5">
+                            <div className="text-gray-700 dark:text-gray-300 font-medium text-xs mb-0.5">
                               {memo?.name || c.caller_name}
                             </div>
                           )}
                           <button onClick={() => clickCaller(c.caller)}
-                            className="font-mono text-xs text-blue-600 hover:underline" title="この番号で絞り込み">
+                            className="font-mono text-xs text-indigo-600 dark:text-indigo-400 hover:underline" title="この番号で絞り込み">
                             {c.caller || '—'}
                           </button>
                           {memo?.note && (
-                            <div className="text-xs text-slate-400 mt-0.5">{memo.note}</div>
+                            <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{memo.note}</div>
                           )}
                         </div>
                         {c.caller && (
                           <button onClick={() => openEdit(c.id, c.caller)}
-                            className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 text-xs mt-0.5 transition-opacity"
+                            className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-slate-600 text-xs mt-0.5 transition-opacity"
                             title="メモを登録">
                             ✏️
                           </button>
@@ -363,11 +363,11 @@ export default function CallsClient({
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-2 font-medium text-slate-700">{c.line_name || '—'}</td>
-                  <td className="px-4 py-2 text-xs text-slate-500 max-w-48 truncate">{c.ivr_route || '—'}</td>
+                  <td className="px-4 py-2 font-medium text-gray-700 dark:text-gray-300">{c.line_name || '—'}</td>
+                  <td className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 max-w-48 truncate">{c.ivr_route || '—'}</td>
                   <td className="px-4 py-2 text-center text-slate-600">{fmtSec(c.duration_sec)}</td>
                   <td className="px-4 py-2 text-center">
-                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${STATUS_STYLE[c.status] || 'bg-slate-100 text-slate-500'}`}>
+                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${STATUS_STYLE[c.status] || 'bg-gray-100 dark:bg-gray-800 text-slate-500'}`}>
                       {STATUS_LABEL[c.status] || c.status}
                     </span>
                   </td>

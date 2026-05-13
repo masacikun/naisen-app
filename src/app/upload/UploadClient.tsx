@@ -62,7 +62,7 @@ export default function UploadClient() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-slate-800">CDR CSVアップロード</h1>
+      <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200">CDR CSVアップロード</h1>
 
       <div
         onDrop={onDrop}
@@ -72,7 +72,7 @@ export default function UploadClient() {
       >
         <div className="text-4xl mb-3">📂</div>
         <p className="text-slate-600 font-medium">cdr*.csv をここにドロップ</p>
-        <p className="text-slate-400 text-sm mt-1">またはクリックしてファイルを選択</p>
+        <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">またはクリックしてファイルを選択</p>
         <input
           ref={inputRef}
           type="file"
@@ -84,10 +84,10 @@ export default function UploadClient() {
       </div>
 
       {entries.length > 0 && (
-        <div className="bg-white rounded-xl shadow overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
-            <span className="text-sm font-semibold text-slate-700">{entries.length} ファイル</span>
-            <button onClick={clear} className="text-xs text-slate-400 hover:text-red-500 transition-colors">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 dark:bg-gray-800">
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{entries.length} ファイル</span>
+            <button onClick={clear} className="text-xs text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors">
               完了済みを除去
             </button>
           </div>
@@ -95,8 +95,8 @@ export default function UploadClient() {
             {entries.map(e => (
               <li key={e.file.name} className="flex items-center gap-3 px-4 py-3">
                 <StatusIcon status={e.status} />
-                <span className="flex-1 text-sm text-slate-700 truncate">{e.file.name}</span>
-                <span className="text-xs text-slate-400 shrink-0">
+                <span className="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate">{e.file.name}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
                   {(e.file.size / 1024).toFixed(0)} KB
                 </span>
                 {e.status === 'ok' && (
@@ -108,7 +108,7 @@ export default function UploadClient() {
               </li>
             ))}
           </ul>
-          <div className="px-4 py-3 border-t bg-slate-50 flex items-center justify-between">
+          <div className="px-4 py-3 border-t bg-gray-50 dark:bg-gray-800 flex items-center justify-between">
             {totalImported > 0 && (
               <span className="text-sm text-green-600 font-semibold">合計 {totalImported.toLocaleString()} 件インポート済み</span>
             )}
@@ -116,7 +116,7 @@ export default function UploadClient() {
               <button
                 onClick={upload}
                 disabled={uploading || pendingCount === 0}
-                className="px-5 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="px-5 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {uploading ? 'インポート中…' : `インポート開始 (${pendingCount}件)`}
               </button>

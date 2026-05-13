@@ -66,9 +66,9 @@ function HourLineHeatmap({ hourly }: { hourly: Hourly[] }) {
       <table className="text-xs border-collapse w-full">
         <thead>
           <tr>
-            <th className="text-left px-2 py-1 text-slate-400 font-normal w-24">回線 ＼ 時間</th>
+            <th className="text-left px-2 py-1 text-gray-400 dark:text-gray-500 font-normal w-24">回線 ＼ 時間</th>
             {Array.from({ length: 24 }, (_, h) => (
-              <th key={h} className="px-1 py-1 text-slate-400 font-normal text-center w-8">{h}</th>
+              <th key={h} className="px-1 py-1 text-gray-400 dark:text-gray-500 font-normal text-center w-8">{h}</th>
             ))}
           </tr>
         </thead>
@@ -91,11 +91,11 @@ function HourLineHeatmap({ hourly }: { hourly: Hourly[] }) {
         </tbody>
       </table>
       <div className="flex items-center gap-1 mt-2 justify-end">
-        <span className="text-xs text-slate-400">少</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">少</span>
         {['#f8fafc','#dbeafe','#93c5fd','#60a5fa','#3b82f6','#1d4ed8'].map(c => (
           <div key={c} style={{ width: 12, height: 12, background: c, borderRadius: 2 }} />
         ))}
-        <span className="text-xs text-slate-400">多</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">多</span>
       </div>
     </div>
   )
@@ -234,47 +234,47 @@ export default function StatsClient({
   // ── レンダリング ─────────────────────────────────────────────────
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-slate-800">分析</h1>
+      <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200">分析</h1>
 
       {/* フィルターパネル */}
-      <div className="bg-white rounded-xl shadow p-3 space-y-2">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-3 space-y-2">
         {/* 期間 */}
         <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-xs text-slate-400 w-12 shrink-0">期間</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 w-12 shrink-0">期間</span>
           {PERIOD_OPTIONS.map(opt => (
             <button key={opt.value} onClick={() => navPeriod(opt.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${period === opt.value ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${period === opt.value ? 'bg-indigo-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
               {opt.label}
             </button>
           ))}
           {period === 'custom' && (
             <div className="flex items-center gap-1 ml-2">
-              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="border rounded px-2 py-1 text-xs" />
-              <span className="text-xs text-slate-400">〜</span>
-              <input type="date" value={customTo}   onChange={e => setCustomTo(e.target.value)}   className="border rounded px-2 py-1 text-xs" />
+              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs" />
+              <span className="text-xs text-gray-400 dark:text-gray-500">〜</span>
+              <input type="date" value={customTo}   onChange={e => setCustomTo(e.target.value)}   className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs" />
               <button onClick={() => navPeriod('custom', customFrom, customTo)}
-                className="px-2 py-1 rounded bg-blue-600 text-white text-xs">適用</button>
+                className="px-2 py-1 rounded bg-indigo-600 text-white text-xs">適用</button>
             </div>
           )}
         </div>
 
         {/* ブランド */}
         <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-xs text-slate-400 w-12 shrink-0">ブランド</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 w-12 shrink-0">ブランド</span>
           <button onClick={toggleAll}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isAll ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isAll ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
             全体
           </button>
           <div className="w-px h-5 bg-slate-200" />
           {BRANDS.map(brand => (
             <button key={brand.id} onClick={() => toggleBrand(brand.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${selected.has(brand.id) ? brand.active : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${selected.has(brand.id) ? brand.active : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
               {brand.label}
             </button>
           ))}
-          {!isAll && <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-slate-600">✕</button>}
+          {!isAll && <button onClick={() => setSelected(new Set())} className="text-xs text-gray-400 dark:text-gray-500 hover:text-slate-600">✕</button>}
           <button onClick={() => setExcludeInt(v => !v)}
-            className={`ml-auto px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${excludeInt ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+            className={`ml-auto px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${excludeInt ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
             {excludeInt ? '内線除外中' : '内線含む'}
           </button>
         </div>
@@ -282,8 +282,8 @@ export default function StatsClient({
 
       {/* 曜日別 + 不在時間帯ランキング */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">曜日別着信数</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">曜日別着信数</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={dowData}>
               <XAxis dataKey="label" tick={{ fontSize: 13 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip />
@@ -293,17 +293,17 @@ export default function StatsClient({
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">不在着信の多い時間帯（TOP10）</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">不在着信の多い時間帯（TOP10）</h2>
           <div className="space-y-2">
             {missedRanking.map((r, i) => (
               <div key={r.hour} className="flex items-center gap-2">
                 <span className={`w-5 text-xs font-bold text-center shrink-0 ${i < 3 ? 'text-red-500' : 'text-slate-400'}`}>{i + 1}</span>
                 <span className="w-10 text-sm text-slate-600 shrink-0">{r.hour}</span>
-                <div className="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden">
+                <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-4 overflow-hidden">
                   <div className="h-full bg-red-400 rounded-full" style={{ width: `${Math.round(r.missed / (missedRanking[0]?.missed || 1) * 100)}%` }} />
                 </div>
-                <span className="text-xs text-slate-500 w-14 text-right shrink-0">{r.missed.toLocaleString()}件</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 w-14 text-right shrink-0">{r.missed.toLocaleString()}件</span>
               </div>
             ))}
           </div>
@@ -312,26 +312,26 @@ export default function StatsClient({
 
       {/* リピーター分析（件数は period によって変わる） */}
       {repeatAnalysis.length > 0 && (totalCallers > 0) && (
-        <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-4">リピーター分析</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">リピーター分析</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
             <div className="space-y-3">
               {repeatAnalysis.map(r => (
                 <div key={r.caller_type} className="flex items-start gap-3">
                   <div className={`w-3 h-3 rounded-full mt-1 shrink-0 ${r.caller_type === 'リピーター' ? 'bg-amber-400' : 'bg-blue-400'}`} />
                   <div>
-                    <div className="text-sm font-semibold text-slate-700">{r.caller_type}</div>
-                    <div className="text-xs text-slate-400">
+                    <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">{r.caller_type}</div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500">
                       {Number(r.caller_count).toLocaleString()} 番号 · {Number(r.call_count).toLocaleString()} 着信
                       {totalCallers > 0 && (
-                        <span className="ml-1 font-medium text-slate-500">（{Math.round(Number(r.caller_count) / totalCallers * 100)}%）</span>
+                        <span className="ml-1 font-medium text-gray-500 dark:text-gray-400">（{Math.round(Number(r.caller_count) / totalCallers * 100)}%）</span>
                       )}
                     </div>
                   </div>
                 </div>
               ))}
               {repeaterRow && firstTimeRow && Number(repeaterRow.caller_count) > 0 && (
-                <div className="text-xs text-slate-400 pt-2 border-t">
+                <div className="text-xs text-gray-400 dark:text-gray-500 pt-2 border-t">
                   リピーター1人あたり平均{' '}
                   <span className="font-semibold text-slate-600">
                     {(Number(repeaterRow.call_count) / Number(repeaterRow.caller_count)).toFixed(1)}回
@@ -340,7 +340,7 @@ export default function StatsClient({
               )}
             </div>
             <div className="flex flex-col items-center">
-              <div className="text-xs text-slate-500 mb-2">発信元番号の比率</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">発信元番号の比率</div>
               <PieChart width={160} height={160}>
                 <Pie data={callerPieData} cx={80} cy={80} innerRadius={40} outerRadius={70} dataKey="value"
                   label={p => `${p.name ?? ''} ${(((p.percent) ?? 0) * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
@@ -350,7 +350,7 @@ export default function StatsClient({
               </PieChart>
             </div>
             <div className="flex flex-col items-center">
-              <div className="text-xs text-slate-500 mb-2">着信件数の比率</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">着信件数の比率</div>
               <PieChart width={160} height={160}>
                 <Pie data={callPieData} cx={80} cy={80} innerRadius={40} outerRadius={70} dataKey="value"
                   label={p => `${p.name ?? ''} ${(((p.percent) ?? 0) * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
@@ -365,8 +365,8 @@ export default function StatsClient({
 
       {/* 通話時間の分布 */}
       {durationDist.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">通話時間の分布（応答のみ）</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">通話時間の分布（応答のみ）</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={durationDist}>
               <XAxis dataKey="bucket" tick={{ fontSize: 12 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip />
@@ -378,10 +378,10 @@ export default function StatsClient({
 
       {/* TOP10 着信番号 */}
       {fTopCallers.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">着信頻度ランキング TOP10</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">着信頻度ランキング TOP10</h2>
           <table className="w-full text-sm">
-            <thead><tr className="text-xs text-slate-500 border-b">
+            <thead><tr className="text-xs text-gray-500 dark:text-gray-400 border-b">
               <th className="text-left py-2 w-8">#</th>
               <th className="text-left py-2 pr-4">電話番号</th>
               <th className="text-right py-2 pr-4">着信数</th>
@@ -391,13 +391,13 @@ export default function StatsClient({
             </tr></thead>
             <tbody>
               {fTopCallers.map((c, i) => (
-                <tr key={c.caller} className="border-b last:border-0 hover:bg-slate-50">
+                <tr key={c.caller} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
                   <td className={`py-2 font-bold text-xs ${i < 3 ? 'text-amber-500' : 'text-slate-400'}`}>{i + 1}</td>
                   <td className="py-2 pr-4 font-mono text-xs">{c.caller}</td>
                   <td className="text-right py-2 pr-4 font-semibold">{c.call_count.toLocaleString()}</td>
                   <td className="text-right py-2 pr-4 text-green-600">{c.answered.toLocaleString()}</td>
                   <td className="text-right py-2 pr-4 text-red-500">{c.no_answer.toLocaleString()}</td>
-                  <td className="text-right py-2 text-xs text-slate-400">
+                  <td className="text-right py-2 text-xs text-gray-400 dark:text-gray-500">
                     {c.last_called_at ? new Date(c.last_called_at).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '-'}
                   </td>
                 </tr>
@@ -409,19 +409,19 @@ export default function StatsClient({
 
       {/* 平均通話時間 */}
       {fAvgDur.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">平均通話時間 回線別（応答のみ）</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">平均通話時間 回線別（応答のみ）</h2>
           <div className="space-y-2">
             {fAvgDur.map(r => (
               <div key={r.line_name} className="flex items-center gap-3">
                 <div className="w-28 text-sm text-right text-slate-600 shrink-0">{r.line_name || '不明'}</div>
-                <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
+                <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-6 overflow-hidden">
                   <div className="h-full bg-blue-400 rounded-full flex items-center justify-end pr-2"
                     style={{ width: `${Math.max(Math.round(r.avg_sec / maxAvg * 100), 8)}%` }}>
                     <span className="text-xs font-semibold text-white">{fmtSec(r.avg_sec)}</span>
                   </div>
                 </div>
-                <div className="text-xs text-slate-400 w-16 text-right shrink-0">{r.answered_count.toLocaleString()}件</div>
+                <div className="text-xs text-gray-400 dark:text-gray-500 w-16 text-right shrink-0">{r.answered_count.toLocaleString()}件</div>
               </div>
             ))}
           </div>
@@ -430,15 +430,15 @@ export default function StatsClient({
 
       {/* 時間帯×回線 ヒートマップ */}
       {fHourly.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">時間帯×回線 ヒートマップ</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">時間帯×回線 ヒートマップ</h2>
           <HourLineHeatmap hourly={fHourly} />
         </div>
       )}
 
       {/* 時間帯別全体 */}
-      <div className="bg-white rounded-xl shadow p-4">
-        <h2 className="text-sm font-bold text-slate-700 mb-3">時間帯別着信数</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">時間帯別着信数</h2>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={hourlyTotal}>
             <XAxis dataKey="hour" tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip />
@@ -450,11 +450,11 @@ export default function StatsClient({
 
       {/* IVR ルート分析 */}
       {ivrSummary.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">IVRルート別着信数・応答率</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">IVRルート別着信数・応答率</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead><tr className="text-xs text-slate-500 border-b">
+              <thead><tr className="text-xs text-gray-500 dark:text-gray-400 border-b">
                 <th className="text-left py-2 pr-4">IVRルート</th>
                 <th className="text-right py-2 pr-4">着信数</th>
                 <th className="text-right py-2 pr-4">応答</th>
@@ -464,7 +464,7 @@ export default function StatsClient({
               </tr></thead>
               <tbody>
                 {ivrSummary.map(r => (
-                  <tr key={r.route} className="border-b last:border-0 hover:bg-slate-50">
+                  <tr key={r.route} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
                     <td className="py-2 pr-4 font-mono text-xs text-slate-600 max-w-48 truncate" title={r.route}>{r.route}</td>
                     <td className="text-right py-2 pr-4 font-semibold">{r.call_count.toLocaleString()}</td>
                     <td className="text-right py-2 pr-4 text-green-600">{r.answered.toLocaleString()}</td>
@@ -488,8 +488,8 @@ export default function StatsClient({
 
       {/* 月別トレンド */}
       {trendData.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">月別応答数推移（回線別）</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">月別応答数推移（回線別）</h2>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={trendData}>
               <XAxis dataKey="month" tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip /><Legend />
@@ -503,17 +503,17 @@ export default function StatsClient({
 
       {/* 応答率 */}
       {rateData.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">回線別応答率</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">回線別応答率</h2>
           <div className="space-y-2">
             {rateData.map(r => (
               <div key={r.name} className="flex items-center gap-3">
                 <div className="w-28 text-sm text-right text-slate-600">{r.name}</div>
-                <div className="flex-1 bg-slate-100 rounded-full h-5 overflow-hidden">
+                <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-5 overflow-hidden">
                   <div className={`h-full rounded-full flex items-center justify-end pr-2 text-xs font-semibold text-white ${r.rate>=80?'bg-green-500':r.rate>=50?'bg-yellow-400':'bg-red-400'}`}
                     style={{ width: `${Math.max(r.rate, 4)}%` }}>{r.rate}%</div>
                 </div>
-                <div className="text-xs text-slate-400 w-16">{r.total.toLocaleString()}件</div>
+                <div className="text-xs text-gray-400 dark:text-gray-500 w-16">{r.total.toLocaleString()}件</div>
               </div>
             ))}
           </div>

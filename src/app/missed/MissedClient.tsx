@@ -30,24 +30,24 @@ export default function MissedClient({
   return (
     <div className="max-w-5xl mx-auto space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-800">不在着信リスト</h1>
-        <span className="text-sm text-slate-500">
+        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200">不在着信リスト</h1>
+        <span className="text-sm text-gray-500 dark:text-gray-400">
           未折返し <span className="font-semibold text-red-600">{pending.length}件</span>
           ／折返済 <span className="font-semibold text-green-600">{calledBack.length}件</span>
         </span>
       </div>
 
       {/* フィルター */}
-      <div className="bg-white rounded-xl shadow p-3 flex flex-wrap gap-2 items-center">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-3 flex flex-wrap gap-2 items-center">
         <select value={days} onChange={e => nav({ days: e.target.value, line: lineFilter })}
-          className="border rounded px-3 py-1.5 text-sm">
+          className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-3 py-1.5 text-sm">
           <option value="3">直近3日</option>
           <option value="7">直近7日</option>
           <option value="14">直近14日</option>
           <option value="30">直近30日</option>
         </select>
         <select value={lineFilter} onChange={e => nav({ days: String(days), line: e.target.value })}
-          className="border rounded px-3 py-1.5 text-sm">
+          className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-3 py-1.5 text-sm">
           <option value="">全回線</option>
           {lines.map(l => <option key={l} value={l}>{l}</option>)}
         </select>
@@ -66,15 +66,15 @@ export default function MissedClient({
 
 function Section({ title, color, rows }: { title: string; color: 'red' | 'green'; rows: Row[] }) {
   if (rows.length === 0) return (
-    <div className="bg-white rounded-xl shadow p-6 text-center text-sm text-slate-400">{title}：なし</div>
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center text-sm text-gray-400 dark:text-gray-500">{title}：なし</div>
   )
   return (
-    <div className="bg-white rounded-xl shadow overflow-hidden">
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div className={`px-4 py-2 text-xs font-bold ${color === 'red' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
         {title}（{rows.length}件）
       </div>
       <table className="w-full text-sm">
-        <thead><tr className="text-xs text-slate-500 border-b bg-slate-50">
+        <thead><tr className="text-xs text-gray-500 dark:text-gray-400 border-b bg-gray-50 dark:bg-gray-800">
           <th className="text-left px-4 py-2">日時</th>
           <th className="text-left px-4 py-2">発信元</th>
           <th className="text-left px-4 py-2">回線</th>
@@ -82,13 +82,13 @@ function Section({ title, color, rows }: { title: string; color: 'red' | 'green'
         </tr></thead>
         <tbody>
           {rows.map(r => (
-            <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50">
+            <tr key={r.id} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
               <td className="px-4 py-2 text-slate-600 whitespace-nowrap">{fmtDate(r.started_at)}</td>
               <td className="px-4 py-2">
-                {r.caller_name && <div className="text-xs text-slate-500 mb-0.5">{r.caller_name}</div>}
-                <span className="font-mono text-xs text-blue-600">{r.caller}</span>
+                {r.caller_name && <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{r.caller_name}</div>}
+                <span className="font-mono text-xs text-indigo-600 dark:text-indigo-400">{r.caller}</span>
               </td>
-              <td className="px-4 py-2 font-medium text-slate-700">{r.line_name || '-'}</td>
+              <td className="px-4 py-2 font-medium text-gray-700 dark:text-gray-300">{r.line_name || '-'}</td>
               <td className="px-4 py-2 text-center">
                 {r.has_callback
                   ? <span className="text-green-600 text-sm">✓</span>

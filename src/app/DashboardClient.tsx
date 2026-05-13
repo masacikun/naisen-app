@@ -49,17 +49,17 @@ function TodayStats() {
   const dateLabel = `${now.getMonth() + 1}/${now.getDate()}`
 
   return (
-    <div className="bg-white rounded-xl shadow p-4">
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
       <div className="flex items-center gap-2 mb-3">
-        <h2 className="text-sm font-bold text-slate-700">今日の着信</h2>
-        <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-1.5 rounded">{dateLabel}</span>
+        <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300">今日の着信</h2>
+        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 rounded">{dateLabel}</span>
         {data ? (
-          <span className="flex items-center gap-1 text-xs text-slate-400">
+          <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
             {data.updatedAt} 更新
           </span>
         ) : (
-          <span className="text-xs text-slate-400 animate-pulse">読み込み中…</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 animate-pulse">読み込み中…</span>
         )}
       </div>
       {data ? (
@@ -71,13 +71,13 @@ function TodayStats() {
             { label: '応答率', value: data.rate,     unit: '%',  cls: data.rate >= 80 ? 'text-green-600' : data.rate >= 50 ? 'text-amber-500' : 'text-red-500' },
           ].map(k => (
             <div key={k.label} className="text-center">
-              <div className="text-xs text-slate-400 mb-1">{k.label}</div>
+              <div className="text-xs text-gray-400 dark:text-gray-500 mb-1">{k.label}</div>
               <div className={`text-xl font-bold ${k.cls}`}>{k.value}<span className="text-xs font-normal ml-0.5">{k.unit}</span></div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="h-12 bg-slate-100 rounded animate-pulse" />
+        <div className="h-12 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
       )}
     </div>
   )
@@ -124,8 +124,8 @@ function GoalGauge({ rate }: { rate: number }) {
   const fillColor = rate >= goal ? '#22c55e' : rate >= goal - 10 ? '#f59e0b' : '#ef4444'
 
   return (
-    <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
-      <h2 className="text-sm font-bold text-slate-700 mb-2 self-start">応答率ゲージ（今月）</h2>
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 flex flex-col items-center">
+      <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 self-start">応答率ゲージ（今月）</h2>
       {/* viewBox: 左右4px余白, 上部はY=6まで(arc頂点y=10-stroke/2), 下部Y=64まで */}
       <svg viewBox="-4 4 108 62" className="w-44">
         <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#e2e8f0" strokeWidth="8" strokeLinecap="round" />
@@ -139,13 +139,13 @@ function GoalGauge({ rate }: { rate: number }) {
           <div className="flex items-center gap-1">
             <input autoFocus value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') saveGoal(); if (e.key === 'Escape') setEditing(false) }}
-              placeholder="1-100" className="border rounded px-2 py-0.5 text-xs w-20 text-center" />
-            <button onClick={saveGoal} className="px-2 py-0.5 rounded bg-blue-600 text-white text-xs">設定</button>
-            <button onClick={() => setEditing(false)} className="px-1 py-0.5 text-xs text-slate-400">✕</button>
+              placeholder="1-100" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-0.5 text-xs w-20 text-center" />
+            <button onClick={saveGoal} className="px-2 py-0.5 rounded bg-indigo-600 text-white text-xs">設定</button>
+            <button onClick={() => setEditing(false)} className="px-1 py-0.5 text-xs text-gray-400 dark:text-gray-500">✕</button>
           </div>
         ) : (
           <button onClick={() => { setInput(String(goal)); setEditing(true) }}
-            className="text-xs text-slate-400 hover:text-slate-600 underline">目標を変更</button>
+            className="text-xs text-gray-400 dark:text-gray-500 hover:text-slate-600 underline">目標を変更</button>
         )}
       </div>
     </div>
@@ -187,13 +187,13 @@ function Heatmap({ days }: { days: HeatmapDay[] }) {
     <div className="overflow-x-auto">
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${totalCols}, 14px)`, gap: '2px', marginBottom: 4, marginLeft: 28 }}>
         {Array.from({ length: totalCols }, (_, col) => (
-          <div key={col} style={{ fontSize: 9 }} className="text-slate-400">{monthLabels.find(m => m.col === col)?.label ?? ''}</div>
+          <div key={col} style={{ fontSize: 9 }} className="text-gray-400 dark:text-gray-500">{monthLabels.find(m => m.col === col)?.label ?? ''}</div>
         ))}
       </div>
       <div className="flex gap-1">
         <div style={{ display: 'grid', gridTemplateRows: 'repeat(7, 14px)', gap: '2px' }}>
           {['月','','水','','金','','日'].map((l, i) => (
-            <div key={i} style={{ fontSize: 9, width: 20, height: 14, lineHeight: '14px', textAlign: 'right', paddingRight: 4 }} className="text-slate-400">{l}</div>
+            <div key={i} style={{ fontSize: 9, width: 20, height: 14, lineHeight: '14px', textAlign: 'right', paddingRight: 4 }} className="text-gray-400 dark:text-gray-500">{l}</div>
           ))}
         </div>
         <div style={{ display: 'grid', gridTemplateRows: 'repeat(7, 14px)', gridAutoFlow: 'column', gap: '2px' }}>
@@ -204,11 +204,11 @@ function Heatmap({ days }: { days: HeatmapDay[] }) {
         </div>
       </div>
       <div className="flex items-center gap-1 mt-2 justify-end">
-        <span className="text-xs text-slate-400">少</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">少</span>
         {['#f1f5f9','#bbf7d0','#86efac','#4ade80','#22c55e','#16a34a'].map(c => (
           <div key={c} style={{ width: 12, height: 12, background: c, borderRadius: 2 }} />
         ))}
-        <span className="text-xs text-slate-400">多</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">多</span>
       </div>
     </div>
   )
@@ -329,8 +329,8 @@ export default function DashboardClient({
 
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-800">ダッシュボード</h1>
-        <span className="text-sm text-slate-500">DB登録件数 <span className="font-semibold text-slate-700">{totalCount.toLocaleString()} 件</span></span>
+        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200">ダッシュボード</h1>
+        <span className="text-sm text-gray-500 dark:text-gray-400">DB登録件数 <span className="font-semibold text-gray-700 dark:text-gray-300">{totalCount.toLocaleString()} 件</span></span>
       </div>
 
       {/* 今日のリアルタイム + ゲージ */}
@@ -340,23 +340,23 @@ export default function DashboardClient({
       </div>
 
       {/* ブランドフィルター + 内線除外 */}
-      <div className="bg-white rounded-xl shadow p-3 flex flex-wrap gap-2 items-center">
-        <span className="text-xs text-slate-400 mr-1">ブランド</span>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-3 flex flex-wrap gap-2 items-center">
+        <span className="text-xs text-gray-400 dark:text-gray-500 mr-1">ブランド</span>
         <button onClick={toggleAll}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isAll ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isAll ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
           全体
         </button>
         <div className="w-px h-5 bg-slate-200 mx-1" />
         {BRANDS.map(brand => (
           <button key={brand.id} onClick={() => toggleBrand(brand.id)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${selected.has(brand.id) ? brand.active : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${selected.has(brand.id) ? brand.active : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
             {brand.label}
           </button>
         ))}
-        {!isAll && <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-slate-600">✕ リセット</button>}
+        {!isAll && <button onClick={() => setSelected(new Set())} className="text-xs text-gray-400 dark:text-gray-500 hover:text-slate-600">✕ リセット</button>}
         <div className="ml-auto flex items-center gap-2">
           <button onClick={() => setExcludeInt(v => !v)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${excludeInt ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${excludeInt ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
             {excludeInt ? '内線除外中' : '内線含む'}
           </button>
         </div>
@@ -365,16 +365,16 @@ export default function DashboardClient({
       {/* KPI カード */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {kpiItems.map(k => (
-          <div key={k.label} className="bg-white rounded-xl shadow p-4">
-            <div className="text-xs text-slate-500 mb-1">{k.label}（今月）</div>
-            <div className="text-2xl font-bold text-slate-800">{k.value}<span className="text-sm font-normal ml-1">{k.unit}</span></div>
-            <div className="text-xs text-slate-400 mt-1 flex gap-3">
+          <div key={k.label} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">{k.label}（今月）</div>
+            <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">{k.value}<span className="text-sm font-normal ml-1">{k.unit}</span></div>
+            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1 flex gap-3">
               <span>先月比 <Delta cur={k.value} prv={k.prv} reverse={k.rev} /></span>
               <span>前年比 <Delta cur={k.value} prv={k.ly}  reverse={k.rev} /></span>
             </div>
-            <div className="text-xs text-slate-400">先月同日 <span className="text-slate-600 font-medium">{k.sdlm}{k.unit}</span></div>
-            <div className="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
-              <span>今週 <span className="font-semibold text-slate-700">{k.week}{k.unit}</span></span>
+            <div className="text-xs text-gray-400 dark:text-gray-500">先月同日 <span className="text-slate-600 font-medium">{k.sdlm}{k.unit}</span></div>
+            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between">
+              <span>今週 <span className="font-semibold text-gray-700 dark:text-gray-300">{k.week}{k.unit}</span></span>
               <Delta cur={k.week} prv={k.weekPrv} reverse={k.rev} />
             </div>
           </div>
@@ -382,16 +382,16 @@ export default function DashboardClient({
       </div>
 
       {/* ヒートマップ */}
-      <div className="bg-white rounded-xl shadow p-4">
-        <h2 className="text-sm font-bold text-slate-700 mb-4">年間カレンダーヒートマップ（過去365日）</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">年間カレンダーヒートマップ（過去365日）</h2>
         <Heatmap days={heatmap} />
       </div>
 
       {/* 週次サマリー */}
-      <div className="bg-white rounded-xl shadow p-4">
-        <h2 className="text-sm font-bold text-slate-700 mb-3">週次サマリー（直近8週）</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">週次サマリー（直近8週）</h2>
         <table className="w-full text-sm">
-          <thead><tr className="text-xs text-slate-500 border-b">
+          <thead><tr className="text-xs text-gray-500 dark:text-gray-400 border-b">
             <th className="text-left py-2 pr-4">週（月曜日）</th>
             <th className="text-right py-2 pr-4">総着信</th>
             <th className="text-right py-2 pr-4">応答</th>
@@ -400,7 +400,7 @@ export default function DashboardClient({
           </tr></thead>
           <tbody>
             {weeklySummary.map(w => (
-              <tr key={w.week} className="border-b last:border-0 hover:bg-slate-50">
+              <tr key={w.week} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
                 <td className="py-2 pr-4 text-slate-600 font-mono text-xs">{w.week}</td>
                 <td className="text-right py-2 pr-4">{w.total.toLocaleString()}</td>
                 <td className="text-right py-2 pr-4 text-green-600">{w.answered.toLocaleString()}</td>
@@ -415,8 +415,8 @@ export default function DashboardClient({
       </div>
 
       {/* 月別チャート */}
-      <div className="bg-white rounded-xl shadow p-4">
-        <h2 className="text-sm font-bold text-slate-700 mb-3">月別着信数（回線別）</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">月別着信数（回線別）</h2>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={chartData}>
             <XAxis dataKey="month" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} /><Tooltip />
@@ -426,13 +426,13 @@ export default function DashboardClient({
       </div>
 
       {/* 回線別サマリー */}
-      <div className="bg-white rounded-xl shadow p-4">
-        <h2 className="text-sm font-bold text-slate-700 mb-3">回線別サマリー（今月）</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">回線別サマリー（今月）</h2>
         {lineArr.length === 0
-          ? <p className="text-sm text-slate-400 py-4 text-center">データなし</p>
+          ? <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">データなし</p>
           : (
           <table className="w-full text-sm">
-            <thead><tr className="text-xs text-slate-500 border-b">
+            <thead><tr className="text-xs text-gray-500 dark:text-gray-400 border-b">
               <th className="text-left py-2 pr-4">回線</th>
               <th className="text-right py-2 pr-4">総着信</th>
               <th className="text-right py-2 pr-4">応答</th>

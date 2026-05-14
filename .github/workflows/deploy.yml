@@ -24,6 +24,14 @@ jobs:
           npm ci
           npm run build
 
+      - name: Stop app before deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: pm2 stop naisen-app || true
+
       - name: Sync built artifacts to VPS
         uses: appleboy/scp-action@master
         with:
@@ -45,6 +53,13 @@ jobs:
             cd /var/www/naisen-app
             npm ci --omit=dev
             pm2 restart naisen-app || pm2 start npm --name naisen-app -- start
+            # Wait for app ready, then warmup dynamic routes
+            for i in $(seq 1 15); do
+              curl -sf http://localhost:3002/n > /dev/null 2>&1 && break
+              sleep 2
+            done
+            curl -sf http://localhost:3002/n/calls > /dev/null 2>&1 || true
+            curl -sf http://localhost:3002/n/stats > /dev/null 2>&1 || true
             echo "✓ naisen-app deployed"
 
       - name: Update SYSTEM.md on VPS

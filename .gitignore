@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code 個人設定（機密を含むため追跡しない）
+.claude/settings.local.json

@@ -1,4 +1,4 @@
-export const metadata = { title: '通話履歴 | 電話履歴管理' }
+export const metadata = { title: '通話履歴' }
 import { supabaseServer } from '@/lib/supabaseServer'
 import { BRANDS } from '@/lib/brands'
 import CallsClient from './CallsClient'

@@ -8,7 +8,10 @@ import './globals.css'
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist-sans' })
 
 export const metadata: Metadata = {
-  title: '番頭さん｜電話履歴管理',
+  title: {
+    default: '番頭さん｜電話履歴管理',
+    template: '番頭さん｜電話履歴管理｜%s',
+  },
   description: 'ナイセンクラウド 電話履歴ダッシュボード',
 }
 

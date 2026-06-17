@@ -13,6 +13,7 @@ const links = [
 ]
 
 const externalLinks = [
+  { href: 'https://smile-mgmt.xvps.jp/card', label: '名刺' },
   { href: '/',            label: '予実管理' },
   { href: '/u',           label: 'ユビレジ' },
   { href: '/m/dashboard', label: 'MF会計' },

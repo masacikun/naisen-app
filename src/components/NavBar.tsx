@@ -18,6 +18,7 @@ const externalLinks = [
   { href: '/u',           label: 'ユビレジ' },
   { href: '/m/dashboard', label: 'MF会計' },
   { href: '/a',            label: '分析'    },
+  { href: '/master',      label: '店舗マスタ' },
 ]
 
 export default function NavBar() {

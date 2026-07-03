@@ -19,6 +19,7 @@ const externalLinks = [
   { href: '/m/dashboard', label: 'MF会計' },
   { href: '/a',            label: '分析'    },
   { href: '/master',      label: '店舗マスタ' },
+  { href: 'https://smile-mgmt.xvps.jp/sq', label: 'Square' },
   { href: 'https://smile-mgmt.xvps.jp/car', label: '車' },
 ]
 

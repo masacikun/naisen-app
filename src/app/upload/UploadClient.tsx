@@ -39,7 +39,7 @@ export default function UploadClient() {
       try {
         const fd = new FormData()
         fd.append('files', entry.file)
-        const res = await fetch('/api/upload-cdr', { method: 'POST', body: fd })
+        const res = await fetch('/n/api/upload-cdr', { method: 'POST', body: fd })
         const json = await res.json()
         const result: FileResult = json.results?.[0] ?? { file: entry.file.name, status: 'error', error: 'Unknown error' }
         setEntries(prev => prev.map(e =>

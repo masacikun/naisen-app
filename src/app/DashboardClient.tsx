@@ -36,7 +36,7 @@ function TodayStats() {
   const [data, setData] = useState<TodayData | null>(null)
 
   const load = useCallback(() => {
-    fetch('/api/today-stats').then(r => r.json()).then(setData).catch(() => {})
+    fetch('/n/api/today-stats').then(r => r.json()).then(setData).catch(() => {})
   }, [])
 
   useEffect(() => {

@@ -161,7 +161,7 @@ export default function CallsClient({
     if (!editName.trim()) return
     setSaving(true)
     try {
-      const res = await fetch('/api/caller-memo', {
+      const res = await fetch('/n/api/caller-memo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ caller: editCaller, name: editName.trim(), note: editNote.trim() || null }),
@@ -176,7 +176,7 @@ export default function CallsClient({
   async function deleteMemo() {
     setSaving(true)
     try {
-      await fetch('/api/caller-memo', {
+      await fetch('/n/api/caller-memo', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ caller: editCaller }),

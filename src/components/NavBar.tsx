@@ -21,6 +21,7 @@ const externalLinks = [
   { href: 'https://banto.hakata-yamato.co.jp/master',      label: '店舗マスタ' },
   { href: 'https://banto.hakata-yamato.co.jp/sq', label: 'Square' },
   { href: 'https://banto.hakata-yamato.co.jp/car', label: '車' },
+  { href: 'https://banto.hakata-yamato.co.jp/eigyo', label: '営業カレンダー' },
 ]
 
 export default function NavBar() {

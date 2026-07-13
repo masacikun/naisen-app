@@ -2,10 +2,12 @@
 
 番頭さん（総合管理システム）の電話履歴管理アプリ。Next.js 16 App Router + PostgREST。
 
-## 電話帳（Phase 1 / Slice 1・2026-07-13）
+## 電話帳（Phase 1 / Slice 1・2026-07-13、Slice 2・2026-07-14）
 
 naisen-app をマスタとする電話帳。閲覧は全認証ユーザー・追加/編集/削除は admin のみ（fail-closed）。
 
+- **着信拒否の統合（Slice 2）**: 別テーブルにせず `phonebook_entries.blocked BOOLEAN NOT NULL DEFAULT false` の1リスト＋フラグ方式。`/n/phonebook` はビュー切替（電話帳=既定/着信拒否/すべて）＋着信拒否バッジ。フォームに着信拒否トグル（adminのみ）。突合表示は blocked も含めて名前解決し赤バッジ表示（FreePBXへの拒否反映は Slice 4）
+- **旧電話帳CSV取込（Slice 2・実施済み）**: `scripts/import_addressbook.ts`（一回限り・`phonebook_entries` 非空なら中断する二重取込ガード付き）。2026-07-14 に958連絡先/1224番号（うち着信拒否279）を取込済み。同一番号の複数連絡先は許容（UNIQUEなし）・突合の多重ヒットは最小 entry_id を決定的に採用
 - テーブル: `phonebook_entries`（連絡先: name/name_kana/group_name/memo/partner_id→partners.partner_no）＋ `phonebook_numbers`（番号複数: phone_raw 原表記＋phone_normalized 突合キー・INDEXあり・UNIQUEなし=Slice 2で決定）。DDL: `supabase/phonebook.sql`
 - ページ: `/n/phonebook`（一覧・検索・admin は追加/編集/削除。複数番号・種別ラベル対応）
 - API: `GET/POST /n/api/phonebook`・`PUT/DELETE /n/api/phonebook/[id]`。編集系は nginx が転送する `X-Auth-Role: admin` 必須（欠落は 403）

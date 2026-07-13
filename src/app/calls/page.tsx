@@ -63,7 +63,7 @@ export default async function CallsPage({
   // 着信相手名の突合（電話帳 主・master フォールバック）: 表示ページ分のみ一括解決
   const nameMap = await resolveCallerNames(calls.map(c => c.caller).filter(Boolean) as string[])
   const names: ResolvedEntry[] = [...nameMap.entries()].map(([caller, r]) => ({
-    caller, name: r.name, source: r.source, entryId: r.entryId, note: r.note ?? null,
+    caller, name: r.name, source: r.source, entryId: r.entryId, note: r.note ?? null, blocked: r.blocked ?? false,
   }))
 
   const isAdmin = (await headers()).get('x-auth-role') === 'admin'

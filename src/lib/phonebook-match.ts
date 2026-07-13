@@ -10,11 +10,12 @@ export interface ResolvedName {
   source: NameSource
   entryId?: number
   note?: string | null
+  blocked?: boolean
 }
 
 export interface PhonebookMatchRow {
   phone_normalized: string | null
-  entry: { id: number; name: string; memo: string | null }
+  entry: { id: number; name: string; memo: string | null; blocked?: boolean }
 }
 export interface PartnerRow { partner_no: number; partner_name: string; phone: string | null }
 export interface EmployeeRow { name: string; phone_landline: string | null }
@@ -37,14 +38,17 @@ export function buildNameMap(
     if (n) byNorm.set(n, { name: p.partner_name, source: '取引先' })
   }
   for (const row of phonebook) {
-    if (row.phone_normalized) {
-      byNorm.set(row.phone_normalized, {
-        name: row.entry.name,
-        source: '電話帳',
-        entryId: row.entry.id,
-        note: row.entry.memo,
-      })
-    }
+    if (!row.phone_normalized) continue
+    // 同一番号の多重ヒットは決定的に最小 entry_id を採用
+    const prev = byNorm.get(row.phone_normalized)
+    if (prev?.source === '電話帳' && prev.entryId != null && prev.entryId <= row.entry.id) continue
+    byNorm.set(row.phone_normalized, {
+      name: row.entry.name,
+      source: '電話帳',
+      entryId: row.entry.id,
+      note: row.entry.memo,
+      blocked: row.entry.blocked ?? false,
+    })
   }
 
   const out = new Map<string, ResolvedName>()

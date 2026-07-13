@@ -15,6 +15,7 @@ export type ResolvedEntry = {
   source: '電話帳' | '取引先' | '従業員'
   entryId?: number
   note: string | null
+  blocked?: boolean
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -76,7 +77,7 @@ export default function CallsClient({
 
   // ── 相手名（電話帳/master 突合結果）と電話帳インライン登録 ──
   const [nameMap, setNameMap] = useState<Map<string, Omit<ResolvedEntry, 'caller'>>>(
-    () => new Map(names.map(n => [n.caller, { name: n.name, source: n.source, entryId: n.entryId, note: n.note }]))
+    () => new Map(names.map(n => [n.caller, { name: n.name, source: n.source, entryId: n.entryId, note: n.note, blocked: n.blocked }]))
   )
   const [editingId,   setEditingId]   = useState<number | null>(null)
   const [editCaller,  setEditCaller]  = useState('')
@@ -192,7 +193,7 @@ export default function CallsClient({
       }
       const saved = await res.json()
       setNameMap(prev => new Map(prev).set(editCaller, {
-        name: editName.trim(), source: '電話帳', entryId: saved.id, note: editNote.trim() || null,
+        name: editName.trim(), source: '電話帳', entryId: saved.id, note: editNote.trim() || null, blocked: saved.blocked ?? false,
       }))
       setEditingId(null)
     } finally { setSaving(false) }
@@ -376,6 +377,11 @@ export default function CallsClient({
                               {info && (
                                 <span className={`ml-1 px-1 py-px rounded text-[10px] font-normal ${SOURCE_STYLE[info.source] ?? ''}`}>
                                   {info.source}
+                                </span>
+                              )}
+                              {info?.blocked && (
+                                <span className="ml-1 px-1 py-px rounded text-[10px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                                  着信拒否
                                 </span>
                               )}
                             </div>

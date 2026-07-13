@@ -3,7 +3,7 @@ import { useRouter, usePathname } from 'next/navigation'
 
 type Row = {
   id: number; started_at: string; caller: string; caller_name: string
-  name_source: string; line_name: string; has_callback: boolean
+  name_source: string; blocked: boolean; line_name: string; has_callback: boolean
 }
 
 function fmtDate(s: string) {
@@ -89,6 +89,7 @@ function Section({ title, color, rows }: { title: string; color: 'red' | 'green'
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
                     {r.caller_name}
                     {r.name_source && <span className="ml-1 px-1 py-px rounded text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{r.name_source}</span>}
+                    {r.blocked && <span className="ml-1 px-1 py-px rounded text-[10px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">着信拒否</span>}
                   </div>
                 )}
                 <span className="font-mono text-xs text-indigo-600 dark:text-indigo-400">{r.caller}</span>

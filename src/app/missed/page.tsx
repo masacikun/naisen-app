@@ -63,6 +63,7 @@ export default async function MissedPage({
     caller:       m.caller ?? '',
     caller_name:  (m.caller ? nameMap.get(m.caller)?.name : undefined) ?? m.caller_name ?? '',
     name_source:  (m.caller ? nameMap.get(m.caller)?.source : undefined) ?? '',
+    blocked:      (m.caller ? nameMap.get(m.caller)?.blocked : undefined) ?? false,
     line_name:    m.line_name ?? '',
     has_callback: callbackSet.has(String(m.id)),
   }))

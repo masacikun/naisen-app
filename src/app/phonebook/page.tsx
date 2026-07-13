@@ -12,9 +12,9 @@ export default async function PhonebookPage() {
   const [{ data: entries }, { data: partners }] = await Promise.all([
     supabaseServer
       .from('phonebook_entries')
-      .select('id,name,name_kana,group_name,memo,partner_id,updated_at,phonebook_numbers(id,phone_raw,phone_normalized,label)')
+      .select('id,name,name_kana,group_name,memo,partner_id,blocked,updated_at,phonebook_numbers(id,phone_raw,phone_normalized,label)')
       .order('updated_at', { ascending: false })
-      .limit(500),
+      .limit(2000),
     supabaseServer
       .from('partners')
       .select('partner_no,partner_name')

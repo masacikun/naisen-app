@@ -31,3 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_phonebook_entries_partner    ON phonebook_entries
 -- PostgREST サーバ側アクセス（既存慣行: service_role のみ・anon なし・RLS なし）
 GRANT ALL ON phonebook_entries, phonebook_numbers TO service_role;
 GRANT USAGE, SELECT ON SEQUENCE phonebook_entries_id_seq, phonebook_numbers_id_seq TO service_role;
+
+-- Slice 2（2026-07-14）: 電話帳と着信拒否を1リスト＋フラグに統合（additive）
+ALTER TABLE phonebook_entries ADD COLUMN IF NOT EXISTS blocked BOOLEAN NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_phonebook_entries_blocked ON phonebook_entries (blocked);

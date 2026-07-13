@@ -14,17 +14,26 @@ export type Entry = {
   group_name: string | null
   memo: string | null
   partner_id: number | null
+  blocked: boolean
   updated_at: string
   phonebook_numbers: PhoneNumber[]
 }
 export type PartnerOption = { partner_no: number; partner_name: string }
 
 type NumberForm = { raw: string; label: string }
+type View = 'normal' | 'blocked' | 'all'
 
 const emptyForm = {
   name: '', name_kana: '', group_name: '', memo: '', partner_id: '' as string,
+  blocked: false,
   numbers: [{ raw: '', label: '' }] as NumberForm[],
 }
+
+const VIEWS: { key: View; label: string }[] = [
+  { key: 'normal',  label: '電話帳' },
+  { key: 'blocked', label: '着信拒否' },
+  { key: 'all',     label: 'すべて' },
+]
 
 export default function PhonebookClient({
   initialEntries, partners, isAdmin,
@@ -32,6 +41,7 @@ export default function PhonebookClient({
   initialEntries: Entry[]; partners: PartnerOption[]; isAdmin: boolean
 }) {
   const [entries, setEntries] = useState<Entry[]>(initialEntries)
+  const [view, setView] = useState<View>('normal')
   const [q, setQ] = useState('')
   const [editingId, setEditingId] = useState<number | 'new' | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -42,13 +52,16 @@ export default function PhonebookClient({
   const partnerName = (id: number | null) =>
     id == null ? '' : partners.find(p => p.partner_no === id)?.partner_name ?? `#${id}`
 
+  const blockedCount = entries.filter(e => e.blocked).length
+  const viewEntries = view === 'all' ? entries : entries.filter(e => e.blocked === (view === 'blocked'))
+
   const qNorm = q.replace(/[^0-9]/g, '')
   const filtered = q
-    ? entries.filter(e =>
+    ? viewEntries.filter(e =>
         [e.name, e.name_kana, e.group_name, e.memo, partnerName(e.partner_id)].some(v => v?.includes(q)) ||
         (qNorm.length > 0 && e.phonebook_numbers.some(n =>
           n.phone_normalized?.includes(qNorm) || n.phone_raw.includes(q))))
-    : entries
+    : viewEntries
 
   async function reload() {
     const res = await fetch('/n/api/phonebook')
@@ -56,7 +69,7 @@ export default function PhonebookClient({
   }
 
   function openNew() {
-    setForm(emptyForm)
+    setForm({ ...emptyForm, blocked: view === 'blocked' })
     setEditingId('new')
     setError('')
   }
@@ -68,6 +81,7 @@ export default function PhonebookClient({
       group_name: e.group_name ?? '',
       memo: e.memo ?? '',
       partner_id: e.partner_id != null ? String(e.partner_id) : '',
+      blocked: e.blocked,
       numbers: e.phonebook_numbers.length > 0
         ? e.phonebook_numbers.map(n => ({ raw: n.phone_raw, label: n.label ?? '' }))
         : [{ raw: '', label: '' }],
@@ -87,6 +101,7 @@ export default function PhonebookClient({
         group_name: form.group_name || null,
         memo: form.memo || null,
         partner_id: form.partner_id ? parseInt(form.partner_id) : null,
+        blocked: form.blocked,
         numbers: form.numbers
           .filter(n => n.raw.trim())
           .map(n => ({ raw: n.raw, label: n.label || null })),
@@ -128,7 +143,9 @@ export default function PhonebookClient({
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200">電話帳</h1>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500 dark:text-gray-400">{entries.length} 件</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {entries.length - blockedCount} 件＋拒否 {blockedCount} 件
+          </span>
           {isAdmin && (
             <button onClick={openNew}
               className="px-3 py-1.5 rounded bg-indigo-600 text-white text-sm hover:bg-indigo-700 font-medium">
@@ -138,8 +155,22 @@ export default function PhonebookClient({
         </div>
       </div>
 
-      {/* 検索 */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-3">
+      {/* ビュー切替＋検索 */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+        <div className="flex gap-1">
+          {VIEWS.map(v => (
+            <button key={v.key} onClick={() => setView(v.key)}
+              className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${
+                view === v.key
+                  ? v.key === 'blocked'
+                    ? 'bg-red-600 text-white border-red-600'
+                    : 'bg-slate-700 text-white border-slate-700'
+                  : 'bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-slate-300 dark:border-gray-600 hover:bg-slate-50'
+              }`}>
+              {v.label}
+            </button>
+          ))}
+        </div>
         <input type="text" placeholder="名前・ヨミ・グループ・電話番号で検索..."
           value={q} onChange={e => setQ(e.target.value)}
           className={`${input} w-full`} />
@@ -168,6 +199,18 @@ export default function PhonebookClient({
           </div>
           <input placeholder="メモ（任意）" value={form.memo}
             onChange={e => setForm({ ...form, memo: e.target.value })} className={`${input} w-full`} />
+
+          {/* 着信拒否トグル */}
+          <label className="flex items-center gap-2 cursor-pointer w-fit">
+            <input type="checkbox" checked={form.blocked}
+              onChange={e => setForm({ ...form, blocked: e.target.checked })} className="rounded" />
+            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+              form.blocked ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+            }`}>
+              着信拒否 {form.blocked ? 'ON' : 'OFF'}
+            </span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">（FreePBX への拒否反映は Slice 4 で連携）</span>
+          </label>
 
           {/* 電話番号（複数） */}
           <div className="space-y-1.5">
@@ -237,7 +280,14 @@ export default function PhonebookClient({
             ) : filtered.map(e => (
               <tr key={e.id} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800 align-top">
                 <td className="px-4 py-2">
-                  <div className="font-medium text-gray-700 dark:text-gray-300">{e.name}</div>
+                  <div className="font-medium text-gray-700 dark:text-gray-300">
+                    {e.name}
+                    {e.blocked && (
+                      <span className="ml-1 px-1 py-px rounded text-[10px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                        着信拒否
+                      </span>
+                    )}
+                  </div>
                   {e.name_kana && <div className="text-xs text-gray-400 dark:text-gray-500">{e.name_kana}</div>}
                 </td>
                 <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-300">{e.group_name || '—'}</td>

@@ -6,7 +6,7 @@ import { buildNumberRows } from '@/lib/phonebook-match'
 export const dynamic = 'force-dynamic'
 
 const ENTRY_SELECT =
-  'id,name,name_kana,group_name,memo,partner_id,updated_at,phonebook_numbers(id,phone_raw,phone_normalized,label)'
+  'id,name,name_kana,group_name,memo,partner_id,blocked,updated_at,phonebook_numbers(id,phone_raw,phone_normalized,label)'
 
 // GET: 一覧・検索（閲覧は全認証ユーザー）。?q= で名前/ヨミ/グループ/番号を絞り込み
 export async function GET(req: NextRequest) {
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     .from('phonebook_entries')
     .select(ENTRY_SELECT)
     .order('updated_at', { ascending: false })
-    .limit(500)
+    .limit(2000)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   let entries = data ?? []
@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
       group_name: body.group_name?.trim() || null,
       memo: body.memo?.trim() || null,
       partner_id: body.partner_id ?? null,
+      blocked: body.blocked === true,
     })
     .select()
     .single()

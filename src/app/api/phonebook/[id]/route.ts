@@ -6,7 +6,7 @@ import { buildNumberRows } from '@/lib/phonebook-match'
 export const dynamic = 'force-dynamic'
 
 const ENTRY_SELECT =
-  'id,name,name_kana,group_name,memo,partner_id,updated_at,phonebook_numbers(id,phone_raw,phone_normalized,label)'
+  'id,name,name_kana,group_name,memo,partner_id,blocked,updated_at,phonebook_numbers(id,phone_raw,phone_normalized,label)'
 
 async function parseId(ctx: { params: Promise<{ id: string }> }): Promise<number | null> {
   const { id } = await ctx.params
@@ -33,6 +33,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
   if (body.group_name !== undefined) patch.group_name = body.group_name?.trim() || null
   if (body.memo !== undefined) patch.memo = body.memo?.trim() || null
   if (body.partner_id !== undefined) patch.partner_id = body.partner_id ?? null
+  if (body.blocked !== undefined) patch.blocked = body.blocked === true
 
   const { data: entry, error } = await supabaseAdmin
     .from('phonebook_entries')

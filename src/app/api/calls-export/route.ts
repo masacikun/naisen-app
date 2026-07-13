@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabaseServer'
 import { BRANDS } from '@/lib/brands'
+import { resolveCallerNames, fetchPhonebookNormalized } from '@/lib/phonebook'
 
 function toJST(utcStr: string) {
   const d = new Date(new Date(utcStr).getTime() + 9 * 60 * 60 * 1000)
@@ -33,13 +34,6 @@ export async function GET(req: NextRequest) {
   const from       = sp.get('from') || ''
   const to         = sp.get('to') || ''
 
-  const { data: memoData } = await supabaseServer
-    .from('caller_memo')
-    .select('caller,name,note')
-
-  const memos = (memoData ?? []) as { caller: string; name: string; note?: string }[]
-  const memoMap = new Map(memos.map(m => [m.caller, m]))
-
   let query = supabaseServer
     .from('naisen_calls')
     .select('started_at,caller,caller_name,line_name,ivr_route,duration_sec,status')
@@ -60,8 +54,9 @@ export async function GET(req: NextRequest) {
   if (excludeInt) query = query.or('caller.is.null,caller.like.0%')
 
   if (hasMemo) {
-    const memoCals = memos.map(m => m.caller)
-    if (memoCals.length > 0) query = query.in('caller', memoCals)
+    // 「電話帳あり」フィルタ（電話帳の正規化番号と caller の完全一致）
+    const norms = await fetchPhonebookNormalized(500)
+    if (norms.length > 0) query = query.in('caller', norms)
     else {
       return new NextResponse('', {
         headers: {
@@ -74,26 +69,30 @@ export async function GET(req: NextRequest) {
 
   const { data } = await query
 
+  // 着信相手名の突合（電話帳 主・master フォールバック）
+  const rowsData = (data ?? []) as {
+    started_at: string; caller: string | null; caller_name: string | null
+    line_name: string | null; ivr_route: string | null
+    duration_sec: number | null; status: string
+  }[]
+  const nameMap = await resolveCallerNames(rowsData.map(c => c.caller).filter(Boolean) as string[])
+
   const STATUS_LABEL: Record<string, string> = {
     'ANSWERED': '応答', 'NO ANSWER': '不在', 'BUSY': '話中', 'FAILED': 'FAILED',
   }
 
   const header = '日時,発信元,名前,回線,IVR,通話時間,ステータス,メモ\n'
-  const rows = (data ?? []).map((c: {
-    started_at: string; caller: string | null; caller_name: string | null
-    line_name: string | null; ivr_route: string | null
-    duration_sec: number | null; status: string
-  }) => {
-    const memo = c.caller ? memoMap.get(c.caller) : undefined
+  const rows = rowsData.map(c => {
+    const hit = c.caller ? nameMap.get(c.caller) : undefined
     return [
       csvEscape(toJST(c.started_at)),
       csvEscape(c.caller),
-      csvEscape(memo?.name || c.caller_name),
+      csvEscape(hit?.name || c.caller_name),
       csvEscape(c.line_name),
       csvEscape(c.ivr_route),
       csvEscape(fmtSec(c.duration_sec)),
       csvEscape(STATUS_LABEL[c.status] || c.status),
-      csvEscape(memo?.note),
+      csvEscape(hit?.note ?? ''),
     ].join(',')
   }).join('\n')
 

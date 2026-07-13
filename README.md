@@ -2,6 +2,19 @@
 
 番頭さん（総合管理システム）の電話履歴管理アプリ。Next.js 16 App Router + PostgREST。
 
+## 電話帳（Phase 1 / Slice 1・2026-07-13）
+
+naisen-app をマスタとする電話帳。閲覧は全認証ユーザー・追加/編集/削除は admin のみ（fail-closed）。
+
+- テーブル: `phonebook_entries`（連絡先: name/name_kana/group_name/memo/partner_id→partners.partner_no）＋ `phonebook_numbers`（番号複数: phone_raw 原表記＋phone_normalized 突合キー・INDEXあり・UNIQUEなし=Slice 2で決定）。DDL: `supabase/phonebook.sql`
+- ページ: `/n/phonebook`（一覧・検索・admin は追加/編集/削除。複数番号・種別ラベル対応）
+- API: `GET/POST /n/api/phonebook`・`PUT/DELETE /n/api/phonebook/[id]`。編集系は nginx が転送する `X-Auth-Role: admin` 必須（欠落は 403）
+- 着信相手名の突合: 通話履歴/不在着信/CSV出力で `caller` を正規化し **電話帳（主）→ 取引先 partners.phone → 従業員 employees.phone_landline（フォールバック）** の順に完全一致で表示名を解決（出所ラベル付き）。実装 `src/lib/phonebook.ts`（DB）＋ `src/lib/phonebook-match.ts`（純ロジック・テスト対象）
+- 通話履歴の ✏️（admin のみ表示）は電話帳への登録/更新に変更。旧 `caller_memo` テーブルは未使用化（温存・DROPしない）
+- nginx: `location /n` に `X-Auth-User/Email/Role` 転送を追加（master-app ブロックと同形）
+
+---
+
 ## 番号正規化 共通部品（src/lib/phone.ts）
 
 電話帳・ブラックリスト・CDR照合で共通利用する電話番号正規化の純関数群（2026-07-13 Phase A・DB/UI非結線）。

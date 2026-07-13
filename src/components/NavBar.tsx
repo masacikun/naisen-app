@@ -7,6 +7,7 @@ const links = [
   { href: '/',       label: 'ダッシュボード' },
   { href: '/calls',  label: '通話履歴' },
   { href: '/missed', label: '不在着信' },
+  { href: '/phonebook', label: '電話帳' },
   { href: '/stats',  label: '分析' },
   { href: '/report', label: 'レポート' },
   { href: '/upload', label: 'アップロード' },

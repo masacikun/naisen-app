@@ -1,0 +1,32 @@
+export const metadata = { title: '電話帳' }
+import { headers } from 'next/headers'
+import { supabaseServer } from '@/lib/supabaseServer'
+import PhonebookClient, { type Entry, type PartnerOption } from './PhonebookClient'
+
+export const dynamic = 'force-dynamic'
+
+export default async function PhonebookPage() {
+  const h = await headers()
+  const isAdmin = h.get('x-auth-role') === 'admin'
+
+  const [{ data: entries }, { data: partners }] = await Promise.all([
+    supabaseServer
+      .from('phonebook_entries')
+      .select('id,name,name_kana,group_name,memo,partner_id,updated_at,phonebook_numbers(id,phone_raw,phone_normalized,label)')
+      .order('updated_at', { ascending: false })
+      .limit(500),
+    supabaseServer
+      .from('partners')
+      .select('partner_no,partner_name')
+      .eq('is_deleted', false)
+      .order('partner_name'),
+  ])
+
+  return (
+    <PhonebookClient
+      initialEntries={(entries ?? []) as Entry[]}
+      partners={(partners ?? []) as PartnerOption[]}
+      isAdmin={isAdmin}
+    />
+  )
+}

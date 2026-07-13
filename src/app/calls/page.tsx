@@ -1,7 +1,9 @@
 export const metadata = { title: '通話履歴' }
+import { headers } from 'next/headers'
 import { supabaseServer } from '@/lib/supabaseServer'
 import { BRANDS } from '@/lib/brands'
-import CallsClient from './CallsClient'
+import { resolveCallerNames, fetchPhonebookNormalized } from '@/lib/phonebook'
+import CallsClient, { type ResolvedEntry } from './CallsClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,13 +30,6 @@ export default async function CallsPage({
   const hasMemo    = sp.hasMemo === '1'
   const minDur     = sp.minDur ? parseInt(sp.minDur) : null
 
-  const { data: memoData } = await supabaseServer
-    .from('caller_memo')
-    .select('caller,name,note')
-    .order('updated_at', { ascending: false })
-
-  const memos = (memoData ?? []) as { caller: string; name: string; note?: string }[]
-
   let query = supabaseServer
     .from('naisen_calls')
     .select('*', { count: 'exact' })
@@ -55,21 +50,32 @@ export default async function CallsPage({
   if (excludeInt)   query = query.or('caller.is.null,caller.like.0%')
 
   if (hasMemo) {
-    const memoCals = memos.map(m => m.caller)
-    query = memoCals.length > 0
-      ? query.in('caller', memoCals)
+    // 「電話帳あり」フィルタ: naisen_calls.caller は数字のみ保持のため正規化番号と完全一致する
+    const norms = await fetchPhonebookNormalized(500)
+    query = norms.length > 0
+      ? query.in('caller', norms)
       : (query as typeof query).eq('id', -1)
   }
 
   const { data, count } = await query
+  const calls = data ?? []
+
+  // 着信相手名の突合（電話帳 主・master フォールバック）: 表示ページ分のみ一括解決
+  const nameMap = await resolveCallerNames(calls.map(c => c.caller).filter(Boolean) as string[])
+  const names: ResolvedEntry[] = [...nameMap.entries()].map(([caller, r]) => ({
+    caller, name: r.name, source: r.source, entryId: r.entryId, note: r.note ?? null,
+  }))
+
+  const isAdmin = (await headers()).get('x-auth-role') === 'admin'
 
   return (
     <CallsClient
-      calls={data ?? []}
+      calls={calls}
       total={count ?? 0}
       page={page}
       filters={sp}
-      memos={memos}
+      names={names}
+      isAdmin={isAdmin}
       excludeIntDefault={excludeInt}
     />
   )

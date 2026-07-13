@@ -1,0 +1,87 @@
+// 着信相手名の突合（純関数・DB非依存）と番号入力のパース。
+// 突合キーは normalizePhone の結果（数字列）の完全一致。
+// 優先順位: 電話帳（主）→ 取引先 → 従業員（master はフォールバック）。
+import { normalizePhone, splitPhones } from './phone'
+
+export type NameSource = '電話帳' | '取引先' | '従業員'
+
+export interface ResolvedName {
+  name: string
+  source: NameSource
+  entryId?: number
+  note?: string | null
+}
+
+export interface PhonebookMatchRow {
+  phone_normalized: string | null
+  entry: { id: number; name: string; memo: string | null }
+}
+export interface PartnerRow { partner_no: number; partner_name: string; phone: string | null }
+export interface EmployeeRow { name: string; phone_landline: string | null }
+
+/** caller(原表記)の配列を正規化番号で突合し、caller→表示名(出所付き)の Map を返す */
+export function buildNameMap(
+  callers: string[],
+  phonebook: PhonebookMatchRow[],
+  partners: PartnerRow[],
+  employees: EmployeeRow[],
+): Map<string, ResolvedName> {
+  // 優先度の低い順に詰め、高い方で上書き（従業員 → 取引先 → 電話帳）
+  const byNorm = new Map<string, ResolvedName>()
+  for (const e of employees) {
+    const n = e.phone_landline ? normalizePhone(e.phone_landline) : null
+    if (n && e.name) byNorm.set(n, { name: e.name, source: '従業員' })
+  }
+  for (const p of partners) {
+    const n = p.phone ? normalizePhone(p.phone) : null
+    if (n) byNorm.set(n, { name: p.partner_name, source: '取引先' })
+  }
+  for (const row of phonebook) {
+    if (row.phone_normalized) {
+      byNorm.set(row.phone_normalized, {
+        name: row.entry.name,
+        source: '電話帳',
+        entryId: row.entry.id,
+        note: row.entry.memo,
+      })
+    }
+  }
+
+  const out = new Map<string, ResolvedName>()
+  for (const caller of callers) {
+    if (!caller) continue
+    const n = normalizePhone(caller) // 内線(3-4桁)・非通知は null → 突合しない
+    const hit = n ? byNorm.get(n) : undefined
+    if (hit) out.set(caller, hit)
+  }
+  return out
+}
+
+/**
+ * 番号入力（文字列 or 配列・複数番号の詰め込み可）を phonebook_numbers 行の素に変換する。
+ * splitPhones で分割するため、1入力が複数行になりうる。
+ */
+export function parseNumbersInput(
+  input: string | string[] | null | undefined,
+): { phone_raw: string; phone_normalized: string | null }[] {
+  const parts = Array.isArray(input) ? input : input ? [input] : []
+  return parts
+    .flatMap(p => splitPhones(p ?? ''))
+    .filter(sp => sp.raw.length > 0)
+    .map(sp => ({ phone_raw: sp.raw, phone_normalized: sp.normalized }))
+}
+
+export type NumberInput = string | { raw: string; label?: string | null }
+
+/** API 入力（文字列 or {raw,label} の配列）→ phonebook_numbers の insert 行 */
+export function buildNumberRows(
+  numbers: NumberInput[] | string | null | undefined,
+  entryId: number,
+): { phone_raw: string; phone_normalized: string | null; label: string | null; entry_id: number }[] {
+  const inputs: NumberInput[] = Array.isArray(numbers) ? numbers : numbers ? [numbers] : []
+  return inputs.flatMap(n => {
+    const raw = typeof n === 'string' ? n : n.raw
+    const label = typeof n === 'string' ? null : (n.label?.trim() || null)
+    return parseNumbersInput(raw).map(p => ({ ...p, label, entry_id: entryId }))
+  })
+}

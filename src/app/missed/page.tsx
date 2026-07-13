@@ -1,5 +1,6 @@
 export const metadata = { title: '不在着信' }
 import { supabaseServer } from '@/lib/supabaseServer'
+import { resolveCallerNames } from '@/lib/phonebook'
 import MissedClient from './MissedClient'
 
 export const dynamic = 'force-dynamic'
@@ -50,6 +51,9 @@ export default async function MissedPage({
     }
   }
 
+  // 着信相手名の突合（電話帳 主・master フォールバック）。CDR由来の caller_name より優先
+  const nameMap = await resolveCallerNames(callers)
+
   // 回線一覧
   const lines = Array.from(new Set(missed.map(m => m.line_name).filter(Boolean))).sort() as string[]
 
@@ -57,7 +61,8 @@ export default async function MissedPage({
     id:           m.id,
     started_at:   m.started_at,
     caller:       m.caller ?? '',
-    caller_name:  m.caller_name ?? '',
+    caller_name:  (m.caller ? nameMap.get(m.caller)?.name : undefined) ?? m.caller_name ?? '',
+    name_source:  (m.caller ? nameMap.get(m.caller)?.source : undefined) ?? '',
     line_name:    m.line_name ?? '',
     has_callback: callbackSet.has(String(m.id)),
   }))

@@ -9,7 +9,13 @@ type Call = {
   caller: string; caller_name: string; line_name: string
   status: string; ivr_route: string
 }
-type Memo = { caller: string; name: string; note?: string }
+export type ResolvedEntry = {
+  caller: string
+  name: string
+  source: '電話帳' | '取引先' | '従業員'
+  entryId?: number
+  note: string | null
+}
 
 const STATUS_STYLE: Record<string, string> = {
   'ANSWERED':  'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
@@ -19,6 +25,11 @@ const STATUS_STYLE: Record<string, string> = {
 }
 const STATUS_LABEL: Record<string, string> = {
   'ANSWERED': '応答', 'NO ANSWER': '不在', 'BUSY': '話中', 'FAILED': 'FAILED',
+}
+const SOURCE_STYLE: Record<string, string> = {
+  '電話帳': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+  '取引先': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+  '従業員': 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
 }
 const DUR_OPTIONS = [
   { label: '指定なし', value: '' },
@@ -40,10 +51,11 @@ function fmtSec(s: number) {
 }
 
 export default function CallsClient({
-  calls, total, page, filters, memos: initialMemos, excludeIntDefault,
+  calls, total, page, filters, names, isAdmin, excludeIntDefault,
 }: {
   calls: Call[]; total: number; page: number
-  filters: CallsFilters; memos: Memo[]; excludeIntDefault: boolean
+  filters: CallsFilters; names: ResolvedEntry[]; isAdmin: boolean
+  excludeIntDefault: boolean
 }) {
   const router   = useRouter()
   const pathname = usePathname()
@@ -62,15 +74,16 @@ export default function CallsClient({
   const [excludeInt, setExcludeInt] = useState(excludeIntDefault)
   const [hasMemo,    setHasMemo]    = useState(filters.hasMemo === '1')
 
-  // ── memo editing state ──
-  const [memoMap, setMemoMap] = useState<Map<string, { name: string; note?: string }>>(
-    () => new Map(initialMemos.map(m => [m.caller, { name: m.name, note: m.note }]))
+  // ── 相手名（電話帳/master 突合結果）と電話帳インライン登録 ──
+  const [nameMap, setNameMap] = useState<Map<string, Omit<ResolvedEntry, 'caller'>>>(
+    () => new Map(names.map(n => [n.caller, { name: n.name, source: n.source, entryId: n.entryId, note: n.note }]))
   )
   const [editingId,   setEditingId]   = useState<number | null>(null)
   const [editCaller,  setEditCaller]  = useState('')
   const [editName,    setEditName]    = useState('')
   const [editNote,    setEditNote]    = useState('')
   const [saving,      setSaving]      = useState(false)
+  const [editError,   setEditError]   = useState('')
 
   // ── URL builder ──
   function buildUrl(ov: {
@@ -140,7 +153,7 @@ export default function CallsClient({
     if (minDur)        p.minDur     = minDur
     if (!excludeInt)   p.excludeInt = '0'
     if (hasMemo)       p.hasMemo    = '1'
-    window.open(`/api/calls-export?${new URLSearchParams(p).toString()}`)
+    window.open(`/n/api/calls-export?${new URLSearchParams(p).toString()}`)
   }
 
   function clickCaller(caller: string) {
@@ -150,38 +163,54 @@ export default function CallsClient({
   }
 
   const openEdit = useCallback((id: number, caller: string) => {
-    const ex = memoMap.get(caller)
+    const ex = nameMap.get(caller)
     setEditName(ex?.name ?? '')
     setEditNote(ex?.note ?? '')
     setEditCaller(caller)
     setEditingId(id)
-  }, [memoMap])
+    setEditError('')
+  }, [nameMap])
 
-  async function saveMemo() {
+  // 電話帳へ登録/更新（既存の電話帳エントリなら名前・メモを更新、無ければ新規作成）
+  async function saveEntry() {
     if (!editName.trim()) return
     setSaving(true)
+    setEditError('')
     try {
-      const res = await fetch('/n/api/caller-memo', {
-        method: 'POST',
+      const ex = nameMap.get(editCaller)
+      const isPhonebook = ex?.source === '電話帳' && ex.entryId
+      const res = await fetch(isPhonebook ? `/n/api/phonebook/${ex.entryId}` : '/n/api/phonebook', {
+        method: isPhonebook ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caller: editCaller, name: editName.trim(), note: editNote.trim() || null }),
+        body: JSON.stringify(isPhonebook
+          ? { name: editName.trim(), memo: editNote.trim() || null }
+          : { name: editName.trim(), memo: editNote.trim() || null, numbers: [editCaller] }),
       })
-      if (res.ok) {
-        setMemoMap(prev => new Map(prev).set(editCaller, { name: editName.trim(), note: editNote.trim() || undefined }))
-        setEditingId(null)
+      if (!res.ok) {
+        setEditError(res.status === 403 ? '登録は管理者のみ可能です' : `保存エラー (${res.status})`)
+        return
       }
+      const saved = await res.json()
+      setNameMap(prev => new Map(prev).set(editCaller, {
+        name: editName.trim(), source: '電話帳', entryId: saved.id, note: editNote.trim() || null,
+      }))
+      setEditingId(null)
     } finally { setSaving(false) }
   }
 
-  async function deleteMemo() {
+  // 電話帳エントリの削除（電話帳由来の相手のみ）
+  async function deleteEntry() {
+    const ex = nameMap.get(editCaller)
+    if (!(ex?.source === '電話帳' && ex.entryId)) return
     setSaving(true)
+    setEditError('')
     try {
-      await fetch('/n/api/caller-memo', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caller: editCaller }),
-      })
-      setMemoMap(prev => { const m = new Map(prev); m.delete(editCaller); return m })
+      const res = await fetch(`/n/api/phonebook/${ex.entryId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        setEditError(res.status === 403 ? '削除は管理者のみ可能です' : `削除エラー (${res.status})`)
+        return
+      }
+      setNameMap(prev => { const m = new Map(prev); m.delete(editCaller); return m })
       setEditingId(null)
     } finally { setSaving(false) }
   }
@@ -235,7 +264,7 @@ export default function CallsClient({
           </button>
         </div>
 
-        {/* 行2: ブランドフィルター + 内線除外 + メモ */}
+        {/* 行2: ブランドフィルター + 内線除外 + 電話帳 */}
         <div className="flex flex-wrap gap-2 items-center">
           {BRANDS.map(b => (
             <button key={b.id} onClick={() => toggleBrand(b.id)}
@@ -262,7 +291,7 @@ export default function CallsClient({
                   ? 'bg-amber-500 text-white border-amber-500'
                   : 'bg-white text-gray-500 dark:text-gray-400 border-slate-300 hover:bg-slate-50'
               }`}>
-              メモあり
+              電話帳あり
             </button>
           </div>
         </div>
@@ -312,7 +341,7 @@ export default function CallsClient({
                 </td>
               </tr>
             ) : calls.map(c => {
-              const memo      = c.caller ? memoMap.get(c.caller) : undefined
+              const info      = c.caller ? nameMap.get(c.caller) : undefined
               const isEditing = editingId === c.id
               return (
                 <tr key={c.id} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
@@ -324,13 +353,14 @@ export default function CallsClient({
                           placeholder="名前" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
                         <input value={editNote} onChange={e => setEditNote(e.target.value)}
                           placeholder="メモ（任意）" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
+                        {editError && <div className="text-xs text-red-600">{editError}</div>}
                         <div className="flex gap-1">
-                          <button onClick={saveMemo} disabled={saving || !editName.trim()}
+                          <button onClick={saveEntry} disabled={saving || !editName.trim()}
                             className="px-2 py-0.5 rounded bg-indigo-600 text-white text-xs disabled:opacity-40">
-                            {saving ? '…' : '保存'}
+                            {saving ? '…' : '電話帳に保存'}
                           </button>
-                          {memoMap.has(editCaller) && (
-                            <button onClick={deleteMemo} disabled={saving}
+                          {nameMap.get(editCaller)?.source === '電話帳' && (
+                            <button onClick={deleteEntry} disabled={saving}
                               className="px-2 py-0.5 rounded bg-red-100 text-red-600 text-xs">削除</button>
                           )}
                           <button onClick={() => setEditingId(null)}
@@ -340,23 +370,28 @@ export default function CallsClient({
                     ) : (
                       <div className="flex items-start gap-1 group">
                         <div>
-                          {(memo?.name || c.caller_name) && (
+                          {(info?.name || c.caller_name) && (
                             <div className="text-gray-700 dark:text-gray-300 font-medium text-xs mb-0.5">
-                              {memo?.name || c.caller_name}
+                              {info?.name || c.caller_name}
+                              {info && (
+                                <span className={`ml-1 px-1 py-px rounded text-[10px] font-normal ${SOURCE_STYLE[info.source] ?? ''}`}>
+                                  {info.source}
+                                </span>
+                              )}
                             </div>
                           )}
                           <button onClick={() => clickCaller(c.caller)}
                             className="font-mono text-xs text-indigo-600 dark:text-indigo-400 hover:underline" title="この番号で絞り込み">
                             {c.caller || '—'}
                           </button>
-                          {memo?.note && (
-                            <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{memo.note}</div>
+                          {info?.note && (
+                            <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{info.note}</div>
                           )}
                         </div>
-                        {c.caller && (
+                        {c.caller && isAdmin && (
                           <button onClick={() => openEdit(c.id, c.caller)}
                             className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-300 text-xs mt-0.5 transition-opacity"
-                            title="メモを登録">
+                            title="電話帳に登録">
                             ✏️
                           </button>
                         )}

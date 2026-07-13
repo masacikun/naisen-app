@@ -12,8 +12,18 @@ describe('buildNameMap', () => {
       noMaster.partners, noMaster.employees,
     )
     expect(map.get('0312345678')).toEqual({
-      name: 'テスト商店', source: '電話帳', entryId: 1, note: '得意先',
+      name: 'テスト商店', source: '電話帳', entryId: 1, note: '得意先', blocked: false,
     })
+  })
+
+  it('blocked が伝播し、多重ヒットは最小 entry_id が決定的に勝つ', () => {
+    const rows = [
+      { phone_normalized: '0312345678', entry: { id: 9, name: '後勝ち候補', memo: null, blocked: false } },
+      { phone_normalized: '0312345678', entry: { id: 3, name: '最小ID', memo: null, blocked: true } },
+      { phone_normalized: '0312345678', entry: { id: 7, name: '中間', memo: null, blocked: false } },
+    ]
+    const map = buildNameMap(['0312345678'], rows, [], [])
+    expect(map.get('0312345678')).toMatchObject({ name: '最小ID', entryId: 3, blocked: true })
   })
 
   it('電話帳が主・master はフォールバック（同一番号なら電話帳が勝つ）', () => {

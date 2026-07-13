@@ -17,6 +17,18 @@ naisen-app をマスタとする電話帳。閲覧は全認証ユーザー・追
 
 ---
 
+## FreePBX 同期フィード（Phase 1 / Slice 4・2026-07-14）
+
+FreePBX（TelPro 162.43.89.64）が pull する一方向フィード。契約は **`docs/freepbx-sync.md`（v1）が正**。
+
+- `GET /n/api/sync/contacts`（blocked=false・679連絡先/730番号）／`GET /n/api/sync/blacklist`（blocked=true を番号単位に展開・normalized null除外・dedup）
+- 認証3層: HTTPS＋nginx IP許可（162.43.89.64のみ・他403）＋Bearerトークン（`.env.local` の `SYNC_FEED_TOKENS`・カンマ区切りで無停止ローテーション可・env未設定は401=fail-closed・timingSafeEqual）
+- nginx `location /n/api/sync/` は auth_request をバイパス（X-Auth-* はこの経路では常に空化）。既存 `/n` の Cookie 認証は不変
+- 実装: `src/lib/sync-auth.ts`（トークン検証）＋ `src/lib/sync-feed.ts`（整形・純関数）＋ `src/app/api/sync/*/route.ts`
+- FreePBX 側 puller（Contact Manager / Blacklist への反映）は別管理（TelPro 側）
+
+---
+
 ## 番号正規化 共通部品（src/lib/phone.ts）
 
 電話帳・ブラックリスト・CDR照合で共通利用する電話番号正規化の純関数群（2026-07-13 Phase A・DB/UI非結線）。

@@ -17,6 +17,19 @@ naisen-app をマスタとする電話帳。閲覧は全認証ユーザー・追
 
 ---
 
+## CDR取込（接続層・フェーズ1実装済み 2026-07-14／live接続はフェーズ2）
+
+FreePBX `asteriskcdrdb.cdr` → `naisen_calls` の pull 取込。**FreePBX は読取専用**（`naisen_ro`・GRANT SELECT のみ）。
+
+- 方式: SSHトンネル都度張り（専用鍵 `~/.ssh/cdrpull_ed25519`・authorized_keys 制限行で 127.0.0.1:3306 転送のみ許可）→ 48h窓＋`CDR_CUTOFF_AT` 以降を SELECT → **linkedid 集約**（代表レグ=sequence最小・IVRのみ応答は NO ANSWER・duration=応答billsec最大・方向判定 inbound/outbound/internal）→ **81形式アダプタ**（先頭81・12桁以上→0付替え。`src/lib/cdr-transform.ts`・phone.ts 不変更）→ `call_id(=linkedid)` で **UPSERT（冪等）**
+- 実装: `src/lib/cdr-transform.ts`（純関数・テスト12件）＋ `scripts/pull_cdr.ts`（ジョブ・mysql2）＋ `scripts/pull_cdr.sh`（cronラッパー・多重起動flock・**MF sync window 4:00-4:45 JST はスキップ**）
+- DDL: `naisen_calls.recording_file text` 追加（録音はファイル名のみ保持・音声はFreePBX側）
+- 回線名: `CDR_LINE_NAMES`（旧15回線＋新トランク 05053711017=大和A/018=大和B/019=大和C。81形式DIDはアダプタで0形式に寄せて引く）
+- cron（**フェーズ2で登録・現在未登録**）: `8,23,38,53 * * * * /var/www/naisen-app/scripts/pull_cdr.sh >> /var/www/naisen-app/logs/cdr-pull.log 2>&1`
+- 必要 env（`.env.local`・値は非コミット）: `CDR_DB_PASSWORD`／`CDR_CUTOFF_AT`（'YYYY-MM-DD HH:MM:SS' JST）／任意で `CDR_SSH_HOST/PORT/USER/KEY・CDR_LOCAL_PORT・CDR_DB_USER/NAME`（既定値あり）
+
+---
+
 ## FreePBX 同期フィード（Phase 1 / Slice 4・2026-07-14）
 
 FreePBX（TelPro 162.43.89.64）が pull する一方向フィード。契約は **`docs/freepbx-sync.md`（v1）が正**。

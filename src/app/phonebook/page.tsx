@@ -2,6 +2,7 @@ export const metadata = { title: '電話帳' }
 import { headers } from 'next/headers'
 import { supabaseServer } from '@/lib/supabaseServer'
 import PhonebookClient, { type Entry, type PartnerOption } from './PhonebookClient'
+import { attachLastCalls } from '@/lib/call-history-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,9 +23,11 @@ export default async function PhonebookPage() {
       .order('partner_name'),
   ])
 
+  const withLast = await attachLastCalls((entries ?? []) as Omit<Entry, 'last_called_at'>[])
+
   return (
     <PhonebookClient
-      initialEntries={(entries ?? []) as Entry[]}
+      initialEntries={withLast as Entry[]}
       partners={(partners ?? []) as PartnerOption[]}
       isAdmin={isAdmin}
     />

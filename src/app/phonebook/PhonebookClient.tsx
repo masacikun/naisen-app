@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 
 export type PhoneNumber = {
   id: number
@@ -16,12 +16,18 @@ export type Entry = {
   partner_id: number | null
   blocked: boolean
   updated_at: string
+  last_called_at: string | null
   phonebook_numbers: PhoneNumber[]
 }
 export type PartnerOption = { partner_no: number; partner_name: string }
 
 type NumberForm = { raw: string; label: string }
 type View = 'normal' | 'blocked' | 'all'
+type HistoryRow = {
+  started_at: string; caller: string; line_name: string | null
+  status: string; duration_sec: number; recording_file: string | null
+}
+type HistoryData = { total: number; page: number; pageSize: number; rows: HistoryRow[] }
 
 const emptyForm = {
   name: '', name_kana: '', group_name: '', memo: '', partner_id: '' as string,
@@ -34,6 +40,27 @@ const VIEWS: { key: View; label: string }[] = [
   { key: 'blocked', label: '着信拒否' },
   { key: 'all',     label: 'すべて' },
 ]
+
+const STATUS_STYLE: Record<string, string> = {
+  'ANSWERED':  'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
+  'NO ANSWER': 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400',
+  'BUSY':      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400',
+  'FAILED':    'bg-gray-100 dark:bg-gray-800 text-slate-500',
+}
+const STATUS_LABEL: Record<string, string> = {
+  'ANSWERED': '応答', 'NO ANSWER': '不在', 'BUSY': '話中', 'FAILED': 'FAILED',
+}
+
+function fmtDateTime(s: string | null) {
+  if (!s) return ''
+  const d = new Date(new Date(s).getTime() + 9 * 60 * 60 * 1000)
+  return `${d.getUTCFullYear()}/${d.getUTCMonth() + 1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
+}
+function fmtSec(s: number) {
+  if (!s) return '-'
+  const m = Math.floor(s / 60)
+  return m ? `${m}分${s % 60 ? s % 60 + '秒' : ''}` : `${s}秒`
+}
 
 export default function PhonebookClient({
   initialEntries, partners, isAdmin,
@@ -48,6 +75,11 @@ export default function PhonebookClient({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState<number | null>(null)
+
+  // 履歴オンデマンド（開いた時だけ取得）
+  const [historyId, setHistoryId] = useState<number | null>(null)
+  const [history, setHistory] = useState<HistoryData | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   const partnerName = (id: number | null) =>
     id == null ? '' : partners.find(p => p.partner_no === id)?.partner_name ?? `#${id}`
@@ -66,6 +98,16 @@ export default function PhonebookClient({
   async function reload() {
     const res = await fetch('/n/api/phonebook')
     if (res.ok) setEntries(await res.json())
+  }
+
+  async function openHistory(id: number, page = 1) {
+    if (historyId === id && page === history?.page) { setHistoryId(null); setHistory(null); return }
+    setHistoryId(id)
+    setHistoryLoading(true)
+    try {
+      const res = await fetch(`/n/api/phonebook/${id}/calls?page=${page}`)
+      setHistory(res.ok ? await res.json() : { total: 0, page: 1, pageSize: 50, rows: [] })
+    } finally { setHistoryLoading(false) }
   }
 
   function openNew() {
@@ -137,6 +179,7 @@ export default function PhonebookClient({
   }
 
   const input = 'border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-3 py-1.5 text-sm'
+  const nCols = isAdmin ? 7 : 6
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
@@ -267,18 +310,20 @@ export default function PhonebookClient({
               <th className="text-left px-4 py-2">電話番号</th>
               <th className="text-left px-4 py-2">取引先</th>
               <th className="text-left px-4 py-2">メモ</th>
+              <th className="text-left px-4 py-2">最終着信</th>
               {isAdmin && <th className="text-center px-4 py-2">操作</th>}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={isAdmin ? 6 : 5} className="text-center py-16 text-gray-400 dark:text-gray-500 text-sm">
+                <td colSpan={nCols} className="text-center py-16 text-gray-400 dark:text-gray-500 text-sm">
                   {entries.length === 0 ? '電話帳は空です' : '該当する連絡先がありません'}
                 </td>
               </tr>
             ) : filtered.map(e => (
-              <tr key={e.id} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800 align-top">
+              <Fragment key={e.id}>
+              <tr className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800 align-top">
                 <td className="px-4 py-2">
                   <div className="font-medium text-gray-700 dark:text-gray-300">
                     {e.name}
@@ -301,6 +346,19 @@ export default function PhonebookClient({
                 </td>
                 <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-300">{partnerName(e.partner_id) || '—'}</td>
                 <td className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 max-w-56 truncate">{e.memo || '—'}</td>
+                <td className="px-4 py-2 whitespace-nowrap">
+                  <div className="text-xs text-gray-600 dark:text-gray-300">{fmtDateTime(e.last_called_at) || '—'}</div>
+                  {e.phonebook_numbers.some(n => n.phone_normalized) && (
+                    <button onClick={() => openHistory(e.id)}
+                      className={`mt-0.5 px-2 py-0.5 rounded border text-[11px] ${
+                        historyId === e.id
+                          ? 'bg-slate-700 text-white border-slate-700'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }`}>
+                      {historyId === e.id ? '履歴を閉じる' : '履歴'}
+                    </button>
+                  )}
+                </td>
                 {isAdmin && (
                   <td className="px-4 py-2 text-center whitespace-nowrap">
                     <button onClick={() => openEdit(e)}
@@ -319,6 +377,65 @@ export default function PhonebookClient({
                   </td>
                 )}
               </tr>
+              {historyId === e.id && (
+                <tr key={`h-${e.id}`} className="border-b bg-slate-50 dark:bg-gray-800/60">
+                  <td colSpan={nCols} className="px-6 py-3">
+                    {historyLoading ? (
+                      <div className="text-xs text-gray-400 dark:text-gray-500 py-2">読込中…</div>
+                    ) : !history || history.total === 0 ? (
+                      <div className="text-xs text-gray-400 dark:text-gray-500 py-2">着信履歴はありません</div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          着信履歴 {history.total.toLocaleString()} 件
+                          （{history.page} / {Math.max(1, Math.ceil(history.total / history.pageSize))} ページ）
+                        </div>
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-gray-400 dark:text-gray-500 border-b">
+                              <th className="text-left py-1 pr-4">日時</th>
+                              <th className="text-left py-1 pr-4">発信元</th>
+                              <th className="text-left py-1 pr-4">回線</th>
+                              <th className="text-center py-1 pr-4">通話時間</th>
+                              <th className="text-center py-1 pr-4">ステータス</th>
+                              <th className="text-left py-1">録音</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {history.rows.map((r, i) => (
+                              <tr key={i} className="border-b last:border-0">
+                                <td className="py-1 pr-4 whitespace-nowrap text-gray-600 dark:text-gray-300">{fmtDateTime(r.started_at)}</td>
+                                <td className="py-1 pr-4 font-mono text-indigo-600 dark:text-indigo-400">{r.caller}</td>
+                                <td className="py-1 pr-4 text-gray-600 dark:text-gray-300">{r.line_name || '—'}</td>
+                                <td className="py-1 pr-4 text-center text-gray-600 dark:text-gray-300">{fmtSec(r.duration_sec)}</td>
+                                <td className="py-1 pr-4 text-center">
+                                  <span className={`px-1.5 py-0.5 rounded font-semibold ${STATUS_STYLE[r.status] || 'bg-gray-100 dark:bg-gray-800 text-slate-500'}`}>
+                                    {STATUS_LABEL[r.status] || r.status}
+                                  </span>
+                                </td>
+                                <td className="py-1 text-gray-400 dark:text-gray-500 max-w-48 truncate" title={r.recording_file ?? ''}>
+                                  {r.recording_file ? `🎙 ${r.recording_file}` : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {history.total > history.pageSize && (
+                          <div className="flex gap-2 items-center">
+                            <button disabled={history.page <= 1 || historyLoading}
+                              onClick={() => openHistory(e.id, history.page - 1)}
+                              className="px-2 py-0.5 rounded border text-xs disabled:opacity-30">◀ 前へ</button>
+                            <button disabled={history.page >= Math.ceil(history.total / history.pageSize) || historyLoading}
+                              onClick={() => openHistory(e.id, history.page + 1)}
+                              className="px-2 py-0.5 rounded border text-xs disabled:opacity-30">次へ ▶</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>

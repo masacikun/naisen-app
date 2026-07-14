@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { isAdminHeaders } from '@/lib/auth'
 import { buildNumberRows } from '@/lib/phonebook-match'
+import { attachLastCalls } from '@/lib/call-history-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
       [e.name, e.name_kana, e.group_name].some(v => v?.includes(q)) ||
       (qNorm.length > 0 && e.phonebook_numbers.some(n => n.phone_normalized?.includes(qNorm))))
   }
-  return NextResponse.json(entries)
+  return NextResponse.json(await attachLastCalls(entries))
 }
 
 // POST: 連絡先の新規作成（admin のみ・fail-closed）

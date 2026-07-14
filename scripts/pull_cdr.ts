@@ -20,6 +20,7 @@ import { aggregateCdr, type CdrLeg } from '../src/lib/cdr-transform'
 const APP_DIR = '/var/www/naisen-app'
 
 function readEnv(name: string, def?: string): string {
+  if (process.env[name]) return process.env[name]!.trim() // プロセスenvが最優先（ドライラン時の一時上書き用）
   for (const f of ['.env.local', '.env']) {
     const p = path.join(APP_DIR, f)
     if (!fs.existsSync(p)) continue
@@ -97,6 +98,33 @@ async function main() {
     const legs = rows as CdrLeg[]
     const records = aggregateCdr(legs)
     console.log(`取得 ${legs.length} レグ → 集約 ${records.length} 通話`)
+
+    // --dry-run: UPSERT せず集約結果のサマリーのみ出力（番号はマスク）
+    if (process.argv.includes('--dry-run')) {
+      const mask = (v: string | null) =>
+        v == null ? null : v.replace(/[0-9](?=[0-9]{2})/g, '#')
+      const count = (fn: (r: (typeof records)[0]) => string | null | undefined) => {
+        const m = new Map<string, number>()
+        for (const r of records) { const k = fn(r) ?? '(null)'; m.set(k, (m.get(k) ?? 0) + 1) }
+        return Object.fromEntries(m)
+      }
+      console.log('status:', JSON.stringify(count(r => r.status)))
+      console.log('line_name:', JSON.stringify(count(r => r.line_name)))
+      console.log('answered_ext:', JSON.stringify(count(r => r.answered_ext)))
+      console.log('ivr_route:', JSON.stringify(count(r => r.ivr_route)))
+      console.log('録音あり:', records.filter(r => r.recording_file).length, '/', records.length)
+      for (const r of records.slice(0, 12)) {
+        console.log(JSON.stringify({
+          call_id: r.call_id, started_at: r.started_at, status: r.status,
+          caller: mask(r.caller), destination: mask(r.destination),
+          line_name: r.line_name, answered_ext: r.answered_ext,
+          duration_sec: r.duration_sec, outbound_line: mask(r.outbound_line),
+          recording: r.recording_file ? 'あり' : null,
+        }))
+      }
+      console.log('DRY RUN: UPSERT せず終了')
+      return
+    }
 
     const headers = {
       apikey: serviceKey,

@@ -7,6 +7,7 @@
 naisen-app をマスタとする電話帳。閲覧は全認証ユーザー・追加/編集/削除は admin のみ（fail-closed）。
 
 - **着信拒否の統合（Slice 2）**: 別テーブルにせず `phonebook_entries.blocked BOOLEAN NOT NULL DEFAULT false` の1リスト＋フラグ方式。`/n/phonebook` はビュー切替（電話帳=既定/着信拒否/すべて）＋着信拒否バッジ。フォームに着信拒否トグル（adminのみ）。突合表示は blocked も含めて名前解決し赤バッジ表示（FreePBXへの拒否反映は Slice 4）
+- **最終着信＋履歴オンデマンド（Slice 3・2026-07-14）**: 一覧（電話帳/着信拒否/すべて 全ビュー）に「最終着信」列。エントリの正規化番号×`naisen_calls.caller` 完全一致（着信のみ・発信は対象外）をチャンク `.in()` 1往復で集約（N+1回避・既存 caller 索引利用・DDLなし）。「履歴」ボタンで `GET /n/api/phonebook/[id]/calls?page=N`（50件/頁・started_at降順・回線/status/通話時間/録音ファイル名表示）をオンデマンド取得。純ロジック `src/lib/call-history.ts`＋サーバ `call-history-server.ts`。旧データの先頭0欠落分は紐づかない（既決どおり）。go-live 後は CDR cron で自動最新化
 - **旧電話帳CSV取込（Slice 2・実施済み）**: `scripts/import_addressbook.ts`（一回限り・`phonebook_entries` 非空なら中断する二重取込ガード付き）。2026-07-14 に958連絡先/1224番号（うち着信拒否279）を取込済み。同一番号の複数連絡先は許容（UNIQUEなし）・突合の多重ヒットは最小 entry_id を決定的に採用
 - テーブル: `phonebook_entries`（連絡先: name/name_kana/group_name/memo/partner_id→partners.partner_no）＋ `phonebook_numbers`（番号複数: phone_raw 原表記＋phone_normalized 突合キー・INDEXあり・UNIQUEなし=Slice 2で決定）。DDL: `supabase/phonebook.sql`
 - ページ: `/n/phonebook`（一覧・検索・admin は追加/編集/削除。複数番号・種別ラベル対応）

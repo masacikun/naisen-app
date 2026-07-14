@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import UserMenu from '@/components/UserMenu'
 
 const links = [
   { href: '/',       label: 'ダッシュボード' },
@@ -58,6 +59,7 @@ export default function NavBar() {
                 {link.label}
               </a>
             ))}
+            <UserMenu />
           </div>
         </nav>
       </div>

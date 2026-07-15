@@ -46,6 +46,19 @@ FreePBX（TelPro 162.43.89.64）が pull する一方向フィード。契約は
 
 ---
 
+## Grandstream XML 電話帳配信（2026-07-15）
+
+Grandstream 電話機（DP750/WP810）が定期ダウンロードする AddressBook XML を配信する。
+
+- `GET /n/api/phonebook/grandstream` → `Content-Type: text/xml; charset=utf-8`・`Cache-Control: no-store`
+- データ源: `phonebook_entries`（blocked=false・limit 5000）＋ `phonebook_numbers`。番号は `phone_normalized`（数字のみ・0始まり）を出力し、null（内線・数字なし）は除外。番号0件の連絡先は出力しない。複数番号は同一 `<Contact>` 内に `<Phone type="Work">` を複数並べる
+- 表示名→`<FirstName>`（XML特殊文字 `& < > " '` はエスケープ）・`<LastName>` は空・`<accountindex>0</accountindex>`
+- 認証: HTTP Basic（`.env.local` の `PHONEBOOK_USER` / `PHONEBOOK_PASS`・timingSafeEqual・両方未設定時のみ素通し＝片方設定なら fail-closed）。401 時は `WWW-Authenticate: Basic realm="phonebook"`
+- 実装: `src/lib/grandstream-phonebook.ts`（XML整形＋Basic照合・純関数）＋ `src/app/api/phonebook/grandstream/route.ts`
+- 公開経路: nginx に `location = /n/api/phonebook/grandstream` の auth_request バイパス（X-Auth-* 空化・IP制限なし＝Basic認証が門）を追加して電話機から到達可能にする（設定はサーバー側・このリポ外。**2026-07-15 時点で未適用＝まさし承認待ち**）
+
+---
+
 ## 番号正規化 共通部品（src/lib/phone.ts）
 
 電話帳・ブラックリスト・CDR照合で共通利用する電話番号正規化の純関数群（2026-07-13 Phase A・DB/UI非結線）。

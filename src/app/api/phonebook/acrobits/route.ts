@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { buildGrandstreamXml, isValidBasicAuth } from '@/lib/grandstream-phonebook'
-import { isNotModified, parseGroupsParam } from '@/lib/phonebook-feed'
+import { isValidBasicAuth } from '@/lib/grandstream-phonebook'
+import { buildAcrobitsJson, isNotModified, parseGroupsParam } from '@/lib/phonebook-feed'
 import { fetchFeedEntries, fetchFeedLastModified } from '@/lib/phonebook-feed-server'
 
 export const dynamic = 'force-dynamic'
 
-// Grandstream 電話機（DP750/WP810）向け XML 電話帳配信。
-// nginx 側で auth_request バイパス＋この route で Basic 認証（PHONEBOOK_USER / PHONEBOOK_PASS）。
-// 2026-07-16: ?user=<内線番号> を追加（購読電話帳で絞り込み・未指定は従来どおり全件）。
-// ?groups= はテスト用オーバーライド。If-Modified-Since → 304 対応（定期DLの帯域節約）。
+// Acrobits Groundwire 向け Web Service Contacts JSON 配信。
+// nginx 側で auth_request バイパス（承認後適用）＋この route で Basic 認証（PHONEBOOK_USER / PHONEBOOK_PASS）。
+// ?user=<内線番号> で購読電話帳を解決（未設定は all）。?groups= はテスト用オーバーライド。
+// ポーリング前提のため If-Modified-Since → 304 対応（Last-Modified は phonebook_feed_state）。
 export async function GET(req: NextRequest) {
   if (!isValidBasicAuth(req.headers.get('authorization'))) {
     return new NextResponse('Unauthorized', {
@@ -29,10 +29,9 @@ export async function GET(req: NextRequest) {
     const user = req.nextUrl.searchParams.get('user')?.trim() || null
     const groups = parseGroupsParam(req.nextUrl.searchParams.get('groups'))
     const entries = await fetchFeedEntries(user, groups)
-    const xml = buildGrandstreamXml(entries)
-    return new NextResponse(xml, {
+    return new NextResponse(JSON.stringify(buildAcrobitsJson(entries)), {
       headers: {
-        'Content-Type': 'text/xml; charset=utf-8',
+        'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-cache',
         ...lmHeaders,
       },

@@ -45,5 +45,5 @@ jobs:
               exit 1
             fi
             rm -rf .next.bak
-            pm2 restart naisen-app --max-memory-restart 300M || pm2 start npm --name naisen-app --max-memory-restart 300M -- start
+            pm2 restart naisen-app --max-memory-restart 512M || pm2 start npm --name naisen-app --max-memory-restart 512M -- start
             echo "✓ naisen-app deployed"

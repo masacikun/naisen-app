@@ -1,12 +1,8 @@
 // Grandstream XML 電話帳（DP750/WP810 定期DL用）の整形と Basic 認証（純関数・DB非依存・テスト対象）。
 // 出力形式は Grandstream AddressBook XML（GXP/DP/WP 共通の phonebook.xml 形式）。
+// 2026-07-16: 入力を配信共通の FeedEntry（phonebook-feed.ts）に統一（?user= 絞り込み・内線番号対応）。
 import { timingSafeEqual } from 'crypto'
-
-export interface PhonebookEntry {
-  id: number
-  name: string
-  phonebook_numbers: { phone_raw: string; phone_normalized: string | null; label: string | null }[]
-}
+import type { FeedEntry } from './phonebook-feed'
 
 /** XML 特殊文字のエスケープ（& < > " '） */
 export function escapeXml(s: string): string {
@@ -20,21 +16,18 @@ export function escapeXml(s: string): string {
 
 /**
  * Grandstream AddressBook XML を生成する。
- * - 番号は phone_normalized（数字のみ・0始まり）を使用。null（内線・数字なし）は除外
- * - 番号が 1 件も残らない連絡先は出力しない
+ * - 番号は FeedEntry.numbers.dial（ダイヤル可能形・内線は数字そのまま）
+ * - 番号0件の連絡先は FeedEntry 化の時点で除外済み（toFeedEntries）
  * - 複数番号は同一 Contact 内に <Phone type="Work"> を複数並べる
  */
-export function buildGrandstreamXml(entries: PhonebookEntry[]): string {
+export function buildGrandstreamXml(entries: FeedEntry[]): string {
   const contacts: string[] = []
   for (const e of entries) {
-    const numbers = e.phonebook_numbers
-      .map(n => n.phone_normalized)
-      .filter((n): n is string => !!n)
-    if (numbers.length === 0) continue
-    const phones = numbers
+    if (e.numbers.length === 0) continue
+    const phones = e.numbers
       .map(
         n =>
-          `    <Phone type="Work">\n      <phonenumber>${escapeXml(n)}</phonenumber>\n      <accountindex>0</accountindex>\n    </Phone>`,
+          `    <Phone type="Work">\n      <phonenumber>${escapeXml(n.dial)}</phonenumber>\n      <accountindex>0</accountindex>\n    </Phone>`,
       )
       .join('\n')
     contacts.push(

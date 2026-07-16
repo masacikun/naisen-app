@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { isAdminHeaders } from '@/lib/auth'
-import { buildNumberRows } from '@/lib/phonebook-match'
+import { buildNumberRows, parseBookKeys } from '@/lib/phonebook-match'
 import { attachLastCalls } from '@/lib/call-history-server'
 
 export const dynamic = 'force-dynamic'
 
 const ENTRY_SELECT =
-  'id,name,name_kana,group_name,memo,partner_id,blocked,updated_at,phonebook_numbers(id,phone_raw,phone_normalized,label)'
+  'id,name,name_kana,furigana,furigana_verified,category_key,active,group_name,memo,partner_id,blocked,updated_at,phonebook_numbers(id,phone_raw,phone_normalized,label,kind),phonebook_entry_books(book_key)'
 
 // GET: 一覧・検索（閲覧は全認証ユーザー）。?q= で名前/ヨミ/グループ/番号を絞り込み
 export async function GET(req: NextRequest) {
@@ -22,8 +22,8 @@ export async function GET(req: NextRequest) {
   let entries = data ?? []
   if (q) {
     const qNorm = q.replace(/[^0-9]/g, '')
-    entries = entries.filter((e: { name: string | null; name_kana: string | null; group_name: string | null; phonebook_numbers: { phone_normalized: string | null; phone_raw: string }[] }) =>
-      [e.name, e.name_kana, e.group_name].some(v => v?.includes(q)) ||
+    entries = entries.filter((e: { name: string | null; name_kana: string | null; furigana: string | null; group_name: string | null; phonebook_numbers: { phone_normalized: string | null; phone_raw: string }[] }) =>
+      [e.name, e.name_kana, e.furigana, e.group_name].some(v => v?.includes(q)) ||
       (qNorm.length > 0 && e.phonebook_numbers.some(n => n.phone_normalized?.includes(qNorm))))
   }
   return NextResponse.json(await attachLastCalls(entries))
@@ -44,6 +44,9 @@ export async function POST(req: NextRequest) {
     .insert({
       name: String(body.name).trim(),
       name_kana: body.name_kana?.trim() || null,
+      furigana: body.furigana?.trim() || null,
+      furigana_verified: body.furigana_verified === true,
+      category_key: body.category_key?.trim() || 'unclassified',
       group_name: body.group_name?.trim() || null,
       memo: body.memo?.trim() || null,
       partner_id: body.partner_id ?? null,
@@ -59,6 +62,15 @@ export async function POST(req: NextRequest) {
   if (numberRows.length > 0) {
     const { error: numErr } = await supabaseAdmin.from('phonebook_numbers').insert(numberRows)
     if (numErr) return NextResponse.json({ error: numErr.message }, { status: 500 })
+  }
+
+  // 掲載電話帳（未指定は all＝従来どおり全端末に配信）
+  const bookKeys = parseBookKeys(body.book_keys) ?? ['all']
+  if (bookKeys.length > 0) {
+    const { error: bookErr } = await supabaseAdmin
+      .from('phonebook_entry_books')
+      .insert(bookKeys.map(k => ({ entry_id: entry.id, book_key: k })))
+    if (bookErr) return NextResponse.json({ error: bookErr.message }, { status: 500 })
   }
 
   const { data: full } = await supabaseAdmin

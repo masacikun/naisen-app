@@ -94,17 +94,29 @@ export function parseNumbersInput(
     .map(sp => ({ phone_raw: sp.raw, phone_normalized: sp.normalized }))
 }
 
-export type NumberInput = string | { raw: string; label?: string | null }
+export type NumberInput = string | { raw: string; label?: string | null; kind?: string | null }
 
-/** API 入力（文字列 or {raw,label} の配列）→ phonebook_numbers の insert 行 */
+/** kind の許容値（不正・未指定は external）。extension=内線 / internal=社内の外線・携帯 */
+export function sanitizeNumberKind(kind: string | null | undefined): 'extension' | 'internal' | 'external' {
+  return kind === 'extension' || kind === 'internal' ? kind : 'external'
+}
+
+/** body.book_keys（掲載電話帳）のサニタイズ。配列以外は undefined（=既存維持/新規は all） */
+export function parseBookKeys(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) return undefined
+  return [...new Set(v.filter((k): k is string => typeof k === 'string' && k.trim().length > 0))]
+}
+
+/** API 入力（文字列 or {raw,label,kind} の配列）→ phonebook_numbers の insert 行 */
 export function buildNumberRows(
   numbers: NumberInput[] | string | null | undefined,
   entryId: number,
-): { phone_raw: string; phone_normalized: string | null; label: string | null; entry_id: number }[] {
+): { phone_raw: string; phone_normalized: string | null; label: string | null; kind: string; entry_id: number }[] {
   const inputs: NumberInput[] = Array.isArray(numbers) ? numbers : numbers ? [numbers] : []
   return inputs.flatMap(n => {
     const raw = typeof n === 'string' ? n : n.raw
     const label = typeof n === 'string' ? null : (n.label?.trim() || null)
-    return parseNumbersInput(raw).map(p => ({ ...p, label, entry_id: entryId }))
+    const kind = sanitizeNumberKind(typeof n === 'string' ? null : n.kind)
+    return parseNumbersInput(raw).map(p => ({ ...p, label, kind, entry_id: entryId }))
   })
 }

@@ -1,7 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { escapeXml, buildGrandstreamXml, isValidBasicAuth, type PhonebookEntry } from './grandstream-phonebook'
+import { escapeXml, buildGrandstreamXml, isValidBasicAuth } from './grandstream-phonebook'
+import type { FeedEntry, FeedNumber } from './phonebook-feed'
 
 const basic = (u: string, p: string) => 'Basic ' + Buffer.from(`${u}:${p}`).toString('base64')
+
+const entry = (id: number, name: string, dials: string[]): FeedEntry => ({
+  id,
+  name,
+  furigana: null,
+  updatedAt: '2026-07-16T10:00:00+09:00',
+  numbers: dials.map((d): FeedNumber => ({ dial: d, kind: 'external', label: null })),
+})
 
 describe('escapeXml', () => {
   it('5種の特殊文字をエスケープする', () => {
@@ -13,12 +22,6 @@ describe('escapeXml', () => {
 })
 
 describe('buildGrandstreamXml', () => {
-  const entry = (id: number, name: string, nums: (string | null)[]): PhonebookEntry => ({
-    id,
-    name,
-    phonebook_numbers: nums.map(n => ({ phone_raw: n ?? '', phone_normalized: n, label: null })),
-  })
-
   it('AddressBook/version/Contact 構造を生成する', () => {
     const xml = buildGrandstreamXml([entry(5, '中村まさし', ['09074555000'])])
     expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>')
@@ -37,8 +40,13 @@ describe('buildGrandstreamXml', () => {
     expect(xml.match(/<Phone type="Work">/g)).toHaveLength(2)
   })
 
-  it('normalized=null の番号は除外・番号0件の連絡先は出力しない', () => {
-    const xml = buildGrandstreamXml([entry(1, 'A', [null]), entry(2, 'B', ['0921234567', null])])
+  it('内線番号（3〜4桁 dial）もそのまま出力する', () => {
+    const xml = buildGrandstreamXml([entry(1, '本社', ['8001'])])
+    expect(xml).toContain('<phonenumber>8001</phonenumber>')
+  })
+
+  it('番号0件の連絡先は出力しない', () => {
+    const xml = buildGrandstreamXml([entry(1, 'A', []), entry(2, 'B', ['0921234567'])])
     expect(xml).not.toContain('<id>1</id>')
     expect(xml.match(/<phonenumber>/g)).toHaveLength(1)
   })

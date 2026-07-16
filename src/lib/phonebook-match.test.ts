@@ -126,13 +126,18 @@ describe('parseNumbersInput', () => {
 describe('buildNumberRows', () => {
   it('{raw,label} 入力→ insert 行（1入力の複数番号にも label を引き継ぐ）', () => {
     expect(buildNumberRows([{ raw: '03-1234-5678、090-1234-5678', label: '代表' }], 5)).toEqual([
-      { phone_raw: '03-1234-5678', phone_normalized: '0312345678', label: '代表', entry_id: 5 },
-      { phone_raw: '090-1234-5678', phone_normalized: '09012345678', label: '代表', entry_id: 5 },
+      { phone_raw: '03-1234-5678', phone_normalized: '0312345678', label: '代表', kind: 'external', entry_id: 5 },
+      { phone_raw: '090-1234-5678', phone_normalized: '09012345678', label: '代表', kind: 'external', entry_id: 5 },
     ])
   })
   it('文字列入力は label null', () => {
     expect(buildNumberRows('0120-000-000', 7)).toEqual([
-      { phone_raw: '0120-000-000', phone_normalized: '0120000000', label: null, entry_id: 7 },
+      { phone_raw: '0120-000-000', phone_normalized: '0120000000', label: null, kind: 'external', entry_id: 7 },
     ])
+  })
+  it('kind を指定すれば保持・不正値は external に丸める', () => {
+    expect(buildNumberRows([{ raw: '8001', kind: 'extension' }], 1)[0].kind).toBe('extension')
+    expect(buildNumberRows([{ raw: '090-1111-2222', kind: 'internal' }], 1)[0].kind).toBe('internal')
+    expect(buildNumberRows([{ raw: '090-1111-2222', kind: 'bogus' }], 1)[0].kind).toBe('external')
   })
 })

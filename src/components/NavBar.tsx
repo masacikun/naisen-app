@@ -24,6 +24,7 @@ const externalLinks = [
   { href: 'https://banto.hakata-yamato.co.jp/sq', label: 'Square' },
   { href: 'https://banto.hakata-yamato.co.jp/car', label: '車' },
   { href: 'https://banto.hakata-yamato.co.jp/eigyo', label: '営業カレンダー' },
+  { href: 'https://banto.hakata-yamato.co.jp/c', label: 'カメラ' },
 ]
 
 export default function NavBar() {

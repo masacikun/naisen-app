@@ -12,6 +12,7 @@ export type CallsFilters = {
   brands?: string; statuses?: string
   minDur?: string; excludeInt?: string; hasMemo?: string
   blocked?: string
+  dir?: string
   page?: string
 }
 
@@ -30,6 +31,7 @@ export default async function CallsPage({
   const excludeInt = sp.excludeInt !== '0'          // default ON
   const hasMemo    = sp.hasMemo === '1'
   const blockedOnly = sp.blocked === '1'
+  const dir        = sp.dir === 'out' ? 'out' as const : 'in' as const
   const minDur     = sp.minDur ? parseInt(sp.minDur) : null
 
   // naisen_calls_ex = naisen_calls + 電話帳突合フラグ(in_phonebook/is_blocked)のビュー
@@ -40,7 +42,7 @@ export default async function CallsPage({
     .order('started_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
-  if (sp.q)    query = query.ilike('caller', `%${sp.q}%`)
+  if (sp.q)    query = query.ilike(dir === 'out' ? 'destination' : 'caller', `%${sp.q}%`)
   if (sp.from) query = query.gte('started_at', new Date(sp.from + 'T00:00:00+09:00').toISOString())
   if (sp.to)   query = query.lte('started_at', new Date(sp.to   + 'T23:59:59+09:00').toISOString())
 
@@ -51,22 +53,37 @@ export default async function CallsPage({
 
   if (statusList.length > 0) query = query.in('status', statusList)
   if (minDur)       query = query.gte('duration_sec', minDur)
-  if (excludeInt)   query = query.or('caller.is.null,caller.like.0%')
 
-  if (hasMemo)     query = query.eq('in_phonebook', true)
-  if (blockedOnly) query = query.eq('is_blocked', true)
+  if (dir === 'out') {
+    // 発信 = 内線発・外線宛（outbound_line が有効な行）。電話帳系フラグは caller 基準のため適用しない
+    query = query
+      .not('caller', 'is', null).not('caller', 'like', '0%')
+      .not('outbound_line', 'is', null).neq('outbound_line', '').neq('outbound_line', 'nan')
+  } else {
+    if (excludeInt)   query = query.or('caller.is.null,caller.like.0%')
+    if (hasMemo)     query = query.eq('in_phonebook', true)
+    if (blockedOnly) query = query.eq('is_blocked', true)
+  }
 
   const { data, count } = await query
   const calls = data ?? []
 
-  // 着信相手名の突合（電話帳 主・master フォールバック）: 表示ページ分のみ一括解決
-  const nameMap = await resolveCallerNames(calls.map(c => c.caller).filter(Boolean) as string[])
+  // 相手名の突合（着信=caller / 発信=destination）: 表示ページ分のみ一括解決
+  const counterparts = calls.map(c => (dir === 'out' ? c.destination : c.caller)).filter(Boolean) as string[]
+  const nameMap = await resolveCallerNames(counterparts)
   const names: ResolvedEntry[] = [...nameMap.entries()].map(([caller, r]) => ({
     caller, name: r.name, source: r.source, entryId: r.entryId, note: r.note ?? null, blocked: r.blocked ?? false,
     partnerNo: r.partnerNo, partnerName: r.partnerName,
   }))
 
   const isAdmin = (await headers()).get('x-auth-role') === 'admin'
+
+  // ✏️の取引先リンク用（38件・軽量）
+  const { data: partners } = await supabaseServer
+    .from('partners')
+    .select('partner_no,partner_name')
+    .eq('is_deleted', false)
+    .order('partner_name')
 
   return (
     <CallsClient
@@ -75,6 +92,7 @@ export default async function CallsPage({
       page={page}
       filters={sp}
       names={names}
+      partners={partners ?? []}
       isAdmin={isAdmin}
       excludeIntDefault={excludeInt}
     />

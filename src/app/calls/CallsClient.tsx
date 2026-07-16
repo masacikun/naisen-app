@@ -9,7 +9,9 @@ type Call = {
   id: number; started_at: string; duration_sec: number
   caller: string; caller_name: string; line_name: string
   status: string; ivr_route: string
+  destination: string; outbound_line: string
 }
+export type PartnerOpt = { partner_no: number; partner_name: string }
 export type ResolvedEntry = {
   caller: string
   name: string
@@ -66,12 +68,13 @@ function isSearchableNumber(caller?: string | null): boolean {
 }
 
 export default function CallsClient({
-  calls, total, page, filters, names, isAdmin, excludeIntDefault,
+  calls, total, page, filters, names, partners, isAdmin, excludeIntDefault,
 }: {
   calls: Call[]; total: number; page: number
-  filters: CallsFilters; names: ResolvedEntry[]; isAdmin: boolean
+  filters: CallsFilters; names: ResolvedEntry[]; partners: PartnerOpt[]; isAdmin: boolean
   excludeIntDefault: boolean
 }) {
+  const dir = filters.dir === 'out' ? 'out' : 'in'
   const router   = useRouter()
   const pathname = usePathname()
 
@@ -98,6 +101,7 @@ export default function CallsClient({
   const [editCaller,  setEditCaller]  = useState('')
   const [editName,    setEditName]    = useState('')
   const [editNote,    setEditNote]    = useState('')
+  const [editPartner, setEditPartner] = useState('')
   const [saving,      setSaving]      = useState(false)
   const [editError,   setEditError]   = useState('')
 
@@ -129,6 +133,7 @@ export default function CallsClient({
     if (!v.excludeInt)         p.excludeInt = '0'
     if (v.hasMemo)             p.hasMemo    = '1'
     if (v.blocked)             p.blocked    = '1'
+    if (dir === 'out')         p.dir        = 'out'
     if (v.page > 1)            p.page       = String(v.page)
     return `${pathname}?${new URLSearchParams(p).toString()}`
   }
@@ -154,6 +159,19 @@ export default function CallsClient({
 
   function applySearch() { nav() }
 
+  function switchDir(next: 'in' | 'out') {
+    if (next === dir) return
+    const p: Record<string, string> = {}
+    if (q)    p.q    = q
+    if (from) p.from = from
+    if (to)   p.to   = to
+    if (minDur) p.minDur = minDur
+    if (statuses.size > 0) p.statuses = [...statuses].join(',')
+    if (next === 'out') p.dir = 'out'
+    // ブランド/内線除外/電話帳系は着信専用のためリセット
+    router.push(`${pathname}?${new URLSearchParams(p).toString()}`)
+  }
+
   function reset() {
     setQ(''); setFrom(''); setTo('')
     setBrands(new Set()); setStatuses(new Set())
@@ -172,6 +190,7 @@ export default function CallsClient({
     if (!excludeInt)   p.excludeInt = '0'
     if (hasMemo)       p.hasMemo    = '1'
     if (blockedOnly)   p.blocked    = '1'
+    if (dir === 'out') p.dir        = 'out'
     window.open(`/n/api/calls-export?${new URLSearchParams(p).toString()}`)
   }
 
@@ -185,6 +204,7 @@ export default function CallsClient({
     const ex = nameMap.get(caller)
     setEditName(ex?.name ?? '')
     setEditNote(ex?.note ?? '')
+    setEditPartner(ex?.partnerNo != null ? String(ex.partnerNo) : '')
     setEditCaller(caller)
     setEditingId(id)
     setEditError('')
@@ -201,20 +221,26 @@ export default function CallsClient({
       const res = await fetch(isPhonebook ? `/n/api/phonebook/${ex.entryId}` : '/n/api/phonebook', {
         method: isPhonebook ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(isPhonebook
-          ? { name: editName.trim(), memo: editNote.trim() || null }
-          // 新規登録: 番号が取引先と一致していれば partner_id を自動リンク（案B・2026-07-16 まさし承認）
-          : { name: editName.trim(), memo: editNote.trim() || null, numbers: [editCaller],
-              partner_id: ex?.source === '取引先' && ex.partnerNo != null ? ex.partnerNo : null }),
+        // 取引先リンク: セレクト選択 ＞ 番号が取引先解決済みなら自動（案B・2026-07-16 まさし承認）
+        body: JSON.stringify((() => {
+          const partnerId = editPartner
+            ? parseInt(editPartner)
+            : (ex?.source === '取引先' && ex.partnerNo != null ? ex.partnerNo : null)
+          return isPhonebook
+            ? { name: editName.trim(), memo: editNote.trim() || null, partner_id: partnerId }
+            : { name: editName.trim(), memo: editNote.trim() || null, numbers: [editCaller], partner_id: partnerId }
+        })()),
       })
       if (!res.ok) {
         setEditError(res.status === 403 ? '登録は管理者のみ可能です' : `保存エラー (${res.status})`)
         return
       }
       const saved = await res.json()
+      const linkedNo = editPartner ? parseInt(editPartner) : (ex?.source === '取引先' ? ex.partnerNo : ex?.partnerNo)
       setNameMap(prev => new Map(prev).set(editCaller, {
         name: editName.trim(), source: '電話帳', entryId: saved.id, note: editNote.trim() || null, blocked: saved.blocked ?? false,
-        partnerName: ex?.source === '取引先' ? ex.name : ex?.partnerName,
+        partnerNo: linkedNo,
+        partnerName: linkedNo != null ? partners.find(pp => pp.partner_no === linkedNo)?.partner_name : undefined,
       }))
       setEditingId(null)
     } finally { setSaving(false) }
@@ -286,9 +312,19 @@ export default function CallsClient({
           </button>
         </div>
 
-        {/* 行2: ブランドフィルター + 内線除外 + 電話帳 */}
+        {/* 行2: 方向 + ブランドフィルター + 内線除外 + 電話帳 */}
         <div className="flex flex-wrap gap-2 items-center">
-          {BRANDS.map(b => (
+          <div className="flex rounded overflow-hidden border border-slate-300 dark:border-gray-600">
+            {([['in', '着信'], ['out', '発信']] as const).map(([k, label]) => (
+              <button key={k} onClick={() => switchDir(k)}
+                className={`px-3 py-1 text-xs font-medium ${
+                  dir === k ? 'bg-slate-700 text-white' : 'bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400'
+                }`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {dir === 'in' && BRANDS.map(b => (
             <button key={b.id} onClick={() => toggleBrand(b.id)}
               className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
                 brands.has(b.id) ? b.active : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-slate-200'
@@ -296,7 +332,7 @@ export default function CallsClient({
               {b.label}
             </button>
           ))}
-          <div className="ml-auto flex gap-2">
+          {dir === 'in' && <div className="ml-auto flex gap-2">
             <button
               onClick={() => { const n = !excludeInt; setExcludeInt(n); nav({ excludeInt: n }) }}
               className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${
@@ -315,7 +351,7 @@ export default function CallsClient({
               }`}>
               電話帳あり
             </button>
-          </div>
+          </div>}
         </div>
 
         {/* 行3: ステータス + 通話時間 */}
@@ -330,13 +366,13 @@ export default function CallsClient({
                 </span>
               </label>
             ))}
-            <label className="flex items-center gap-1 cursor-pointer">
+            {dir === 'in' && <label className="flex items-center gap-1 cursor-pointer">
               <input type="checkbox" checked={blockedOnly}
                 onChange={() => { const n = !blockedOnly; setBlockedOnly(n); nav({ blocked: n }) }} className="rounded" />
               <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
                 着信拒否
               </span>
-            </label>
+            </label>}
           </div>
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">通話時間:</span>
@@ -355,8 +391,8 @@ export default function CallsClient({
           <thead>
             <tr className="text-xs text-gray-500 dark:text-gray-400 border-b bg-gray-50 dark:bg-gray-800">
               <th className="text-left px-4 py-2">日時</th>
-              <th className="text-left px-4 py-2">発信元</th>
-              <th className="text-left px-4 py-2">回線</th>
+              <th className="text-left px-4 py-2">{dir === 'out' ? '発信先' : '発信元'}</th>
+              <th className="text-left px-4 py-2">{dir === 'out' ? '発信内線' : '回線'}</th>
               <th className="text-left px-4 py-2">IVR</th>
               <th className="text-center px-4 py-2">通話時間</th>
               <th className="text-center px-4 py-2">ステータス</th>
@@ -370,7 +406,8 @@ export default function CallsClient({
                 </td>
               </tr>
             ) : calls.map(c => {
-              const info      = c.caller ? nameMap.get(c.caller) : undefined
+              const other     = dir === 'out' ? c.destination : c.caller
+              const info      = other ? nameMap.get(other) : undefined
               const isEditing = editingId === c.id
               return (
                 <tr key={c.id} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
@@ -382,6 +419,18 @@ export default function CallsClient({
                           placeholder="名前" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
                         <input value={editNote} onChange={e => setEditNote(e.target.value)}
                           placeholder="メモ（任意）" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
+                        <select value={editPartner}
+                          onChange={e => {
+                            setEditPartner(e.target.value)
+                            const pn = partners.find(pp => String(pp.partner_no) === e.target.value)?.partner_name
+                            if (pn && !editName.trim()) setEditName(pn)
+                          }}
+                          className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full">
+                          <option value="">取引先とリンク（任意）</option>
+                          {partners.map(pp => (
+                            <option key={pp.partner_no} value={pp.partner_no}>{pp.partner_name}</option>
+                          ))}
+                        </select>
                         {nameMap.get(editCaller)?.source === '取引先' && (
                           <div className="text-[11px] text-emerald-600 dark:text-emerald-400">
                             保存時に取引先「{nameMap.get(editCaller)?.name}」とリンクします
@@ -413,14 +462,14 @@ export default function CallsClient({
                     ) : (
                       <div className="flex items-start gap-1 group">
                         <div>
-                          {(info?.name || c.caller_name) && (
+                          {(info?.name || (dir === 'in' && c.caller_name)) && (
                             <div className="text-gray-700 dark:text-gray-300 font-medium text-xs mb-0.5">
                               {info?.source === '電話帳' ? (
                                 <Link href={`/phonebook?q=${encodeURIComponent(c.caller)}`}
                                   className="hover:underline text-indigo-700 dark:text-indigo-300" title="電話帳で開く">
                                   {info.name}
                                 </Link>
-                              ) : (info?.name || c.caller_name)}
+                              ) : (info?.name || (dir === 'out' ? '' : c.caller_name))}
                               {info?.partnerName && (
                                 <span className="ml-1 text-[10px] text-gray-400 dark:text-gray-500 font-normal">（取引先: {info.partnerName}）</span>
                               )}
@@ -436,23 +485,23 @@ export default function CallsClient({
                               )}
                             </div>
                           )}
-                          <button onClick={() => clickCaller(c.caller)}
+                          <button onClick={() => clickCaller(other)}
                             className="font-mono text-xs text-indigo-600 dark:text-indigo-400 hover:underline" title="この番号で絞り込み">
-                            {c.caller || '—'}
+                            {other || '—'}
                           </button>
                           {info?.note && (
                             <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{info.note}</div>
                           )}
                         </div>
-                        {!info && isSearchableNumber(c.caller) && (
-                          <a href={NUMBER_SEARCH_SITES[0].url(c.caller)} target="_blank" rel="noopener noreferrer"
+                        {!info && isSearchableNumber(other) && (
+                          <a href={NUMBER_SEARCH_SITES[0].url(other)} target="_blank" rel="noopener noreferrer"
                             className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 text-xs mt-0.5 transition-opacity"
                             title="この番号をネットで検索">
                             🔍
                           </a>
                         )}
-                        {c.caller && isAdmin && (
-                          <button onClick={() => openEdit(c.id, c.caller)}
+                        {other && isAdmin && (
+                          <button onClick={() => openEdit(c.id, other)}
                             className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-300 text-xs mt-0.5 transition-opacity"
                             title="電話帳に登録">
                             ✏️
@@ -461,7 +510,7 @@ export default function CallsClient({
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-2 font-medium text-gray-700 dark:text-gray-300">{c.line_name || '—'}</td>
+                  <td className="px-4 py-2 font-medium text-gray-700 dark:text-gray-300">{(dir === 'out' ? c.caller : c.line_name) || '—'}</td>
                   <td className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 max-w-48 truncate">{c.ivr_route || '—'}</td>
                   <td className="px-4 py-2 text-center text-gray-600 dark:text-gray-300">{fmtSec(c.duration_sec)}</td>
                   <td className="px-4 py-2 text-center">

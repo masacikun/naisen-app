@@ -64,6 +64,7 @@ export function buildNameMap(
       note: row.entry.memo,
       blocked: row.entry.blocked ?? false,
       ...(partnerName ? { partnerName } : {}),
+      ...(row.entry.partner_id != null ? { partnerNo: row.entry.partner_id } : {}),
     })
   }
 

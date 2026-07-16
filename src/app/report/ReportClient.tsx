@@ -156,7 +156,7 @@ export default function ReportClient({
           </tr></thead>
           <tbody>
             {lineData.map(l => (
-              <tr key={l.name} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
+              <tr key={l.name} className="border-b last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/60">
                 <td className="py-2 pr-4 font-medium text-gray-700 dark:text-gray-300">{l.name}</td>
                 <td className="text-right py-2 pr-4">{l.total.toLocaleString()}</td>
                 <td className="text-right py-2 pr-4 text-green-600">{l.answered.toLocaleString()}</td>
@@ -184,7 +184,7 @@ export default function ReportClient({
             </tr></thead>
             <tbody>
               {topCallers.map((c, i) => (
-                <tr key={c.caller} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
+                <tr key={c.caller} className="border-b last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/60">
                   <td className={`py-2 font-bold text-xs ${i < 3 ? 'text-amber-500' : 'text-slate-400'}`}>{i + 1}</td>
                   <td className="py-2 pr-4 font-mono text-xs">{c.caller}</td>
                   <td className="text-right py-2 pr-4 font-semibold">{c.total}</td>

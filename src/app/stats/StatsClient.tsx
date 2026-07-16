@@ -243,7 +243,7 @@ export default function StatsClient({
           <span className="text-xs text-gray-400 dark:text-gray-500 w-12 shrink-0">期間</span>
           {PERIOD_OPTIONS.map(opt => (
             <button key={opt.value} onClick={() => navPeriod(opt.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${period === opt.value ? 'bg-indigo-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${period === opt.value ? 'bg-indigo-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-700'}`}>
               {opt.label}
             </button>
           ))}
@@ -262,19 +262,19 @@ export default function StatsClient({
         <div className="flex flex-wrap gap-2 items-center">
           <span className="text-xs text-gray-400 dark:text-gray-500 w-12 shrink-0">ブランド</span>
           <button onClick={toggleAll}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isAll ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isAll ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-700'}`}>
             全体
           </button>
           <div className="w-px h-5 bg-slate-200" />
           {BRANDS.map(brand => (
             <button key={brand.id} onClick={() => toggleBrand(brand.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${selected.has(brand.id) ? brand.active : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${selected.has(brand.id) ? brand.active : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-700'}`}>
               {brand.label}
             </button>
           ))}
           {!isAll && <button onClick={() => setSelected(new Set())} className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-300">✕</button>}
           <button onClick={() => setExcludeInt(v => !v)}
-            className={`ml-auto px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${excludeInt ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
+            className={`ml-auto px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${excludeInt ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-700'}`}>
             {excludeInt ? '内線除外中' : '内線含む'}
           </button>
         </div>
@@ -391,7 +391,7 @@ export default function StatsClient({
             </tr></thead>
             <tbody>
               {fTopCallers.map((c, i) => (
-                <tr key={c.caller} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
+                <tr key={c.caller} className="border-b last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/60">
                   <td className={`py-2 font-bold text-xs ${i < 3 ? 'text-amber-500' : 'text-slate-400'}`}>{i + 1}</td>
                   <td className="py-2 pr-4 font-mono text-xs">{c.caller}</td>
                   <td className="text-right py-2 pr-4 font-semibold">{c.call_count.toLocaleString()}</td>
@@ -464,7 +464,7 @@ export default function StatsClient({
               </tr></thead>
               <tbody>
                 {ivrSummary.map(r => (
-                  <tr key={r.route} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
+                  <tr key={r.route} className="border-b last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/60">
                     <td className="py-2 pr-4 font-mono text-xs text-gray-600 dark:text-gray-300 max-w-48 truncate" title={r.route}>{r.route}</td>
                     <td className="text-right py-2 pr-4 font-semibold">{r.call_count.toLocaleString()}</td>
                     <td className="text-right py-2 pr-4 text-green-600">{r.answered.toLocaleString()}</td>

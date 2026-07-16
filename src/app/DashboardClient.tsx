@@ -343,20 +343,20 @@ export default function DashboardClient({
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-3 flex flex-wrap gap-2 items-center">
         <span className="text-xs text-gray-400 dark:text-gray-500 mr-1">ブランド</span>
         <button onClick={toggleAll}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isAll ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isAll ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-700'}`}>
           全体
         </button>
         <div className="w-px h-5 bg-slate-200 mx-1" />
         {BRANDS.map(brand => (
           <button key={brand.id} onClick={() => toggleBrand(brand.id)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${selected.has(brand.id) ? brand.active : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${selected.has(brand.id) ? brand.active : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-700'}`}>
             {brand.label}
           </button>
         ))}
         {!isAll && <button onClick={() => setSelected(new Set())} className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-300">✕ リセット</button>}
         <div className="ml-auto flex items-center gap-2">
           <button onClick={() => setExcludeInt(v => !v)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${excludeInt ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${excludeInt ? 'bg-slate-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-700'}`}>
             {excludeInt ? '内線除外中' : '内線含む'}
           </button>
         </div>
@@ -400,7 +400,7 @@ export default function DashboardClient({
           </tr></thead>
           <tbody>
             {weeklySummary.map(w => (
-              <tr key={w.week} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
+              <tr key={w.week} className="border-b last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/60">
                 <td className="py-2 pr-4 text-gray-600 dark:text-gray-300 font-mono text-xs">{w.week}</td>
                 <td className="text-right py-2 pr-4">{w.total.toLocaleString()}</td>
                 <td className="text-right py-2 pr-4 text-green-600">{w.answered.toLocaleString()}</td>
@@ -441,7 +441,7 @@ export default function DashboardClient({
             </tr></thead>
             <tbody>
               {lineArr.map(l => (
-                <tr key={l.name} className={`border-b last:border-0 transition-colors ${l.rate<50?'bg-red-50 hover:bg-red-100':l.rate<70?'bg-yellow-50 hover:bg-yellow-100':'hover:bg-slate-50'}`}>
+                <tr key={l.name} className={`border-b last:border-0 transition-colors ${l.rate<50?'bg-red-50 dark:bg-red-900/25 hover:bg-red-100 dark:hover:bg-red-900/40':l.rate<70?'bg-yellow-50 dark:bg-yellow-900/25 hover:bg-yellow-100 dark:hover:bg-yellow-900/40':'hover:bg-slate-50 dark:hover:bg-gray-800/60'}`}>
                   <td className="py-2 pr-4 font-medium">
                     <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ background: LINE_COLORS[l.name] || '#94a3b8' }} />
                     {l.name}

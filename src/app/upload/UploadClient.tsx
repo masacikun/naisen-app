@@ -68,7 +68,7 @@ export default function UploadClient() {
         onDrop={onDrop}
         onDragOver={e => e.preventDefault()}
         onClick={() => inputRef.current?.click()}
-        className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+        className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
       >
         <div className="text-4xl mb-3">📂</div>
         <p className="text-gray-600 dark:text-gray-300 font-medium">cdr*.csv をここにドロップ</p>

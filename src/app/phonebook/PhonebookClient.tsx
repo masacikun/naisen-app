@@ -351,7 +351,7 @@ export default function PhonebookClient({
                     ? v.key === 'blocked'
                       ? 'bg-red-600 text-white border-red-600'
                       : 'bg-slate-700 text-white border-slate-700'
-                    : 'bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-slate-300 dark:border-gray-600 hover:bg-slate-50'
+                    : 'bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-slate-300 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-700'
                 }`}>
                 {v.label}
               </button>
@@ -615,7 +615,7 @@ export default function PhonebookClient({
               </tr>
             ) : filtered.map(e => (
               <Fragment key={e.id}>
-              <tr className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800 align-top">
+              <tr className="border-b last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/60 align-top">
                 <td className="px-4 py-2">
                   <div className="font-medium text-gray-700 dark:text-gray-300">
                     {e.name}

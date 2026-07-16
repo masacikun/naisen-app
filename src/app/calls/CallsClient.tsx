@@ -341,7 +341,7 @@ export default function CallsClient({
           {dir === 'in' && BRANDS.map(b => (
             <button key={b.id} onClick={() => toggleBrand(b.id)}
               className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                brands.has(b.id) ? b.active : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-slate-200'
+                brands.has(b.id) ? b.active : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-gray-700'
               }`}>
               {b.label}
             </button>
@@ -352,7 +352,7 @@ export default function CallsClient({
               className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${
                 excludeInt
                   ? 'bg-slate-700 text-white border-slate-700'
-                  : 'bg-white text-gray-500 dark:text-gray-400 border-slate-300 hover:bg-slate-50'
+                  : 'bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-slate-300 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-700'
               }`}>
               内線除外 {excludeInt ? 'ON' : 'OFF'}
             </button>
@@ -361,7 +361,7 @@ export default function CallsClient({
               className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${
                 hasMemo
                   ? 'bg-amber-500 text-white border-amber-500'
-                  : 'bg-white text-gray-500 dark:text-gray-400 border-slate-300 hover:bg-slate-50'
+                  : 'bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-slate-300 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-700'
               }`}>
               電話帳あり
             </button>

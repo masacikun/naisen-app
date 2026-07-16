@@ -41,7 +41,7 @@ type HistoryRow = {
 type HistoryData = { total: number; page: number; pageSize: number; rows: HistoryRow[] }
 
 const emptyForm = {
-  name: '', furigana: '', furigana_verified: false, category_key: 'unclassified',
+  name: '', furigana: '', category_key: 'unclassified',
   group_name: '', memo: '', partner_id: '' as string,
   blocked: false,
   book_keys: ['all'] as string[],
@@ -100,7 +100,6 @@ export default function PhonebookClient({
   const [q, setQ] = useState(initialQ)
   const [categoryFilter, setCategoryFilter] = useState('')
   const [activeOnly, setActiveOnly] = useState(true)
-  const [unverifiedOnly, setUnverifiedOnly] = useState(false)
   const [editingId, setEditingId] = useState<number | 'new' | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [furiganaEdited, setFuriganaEdited] = useState(false)
@@ -129,7 +128,6 @@ export default function PhonebookClient({
   let viewEntries = filterByView(entries, view)
   if (categoryFilter) viewEntries = viewEntries.filter(e => e.category_key === categoryFilter)
   if (activeOnly) viewEntries = viewEntries.filter(e => e.active)
-  if (unverifiedOnly) viewEntries = viewEntries.filter(e => !e.furigana_verified)
 
   const qNorm = q.replace(/[^0-9]/g, '')
   const filtered = q
@@ -163,7 +161,7 @@ export default function PhonebookClient({
       if (!res.ok) return
       const j = await res.json()
       if (j.furigana) {
-        setForm(f => (furiganaEdited ? f : { ...f, furigana: j.furigana, furigana_verified: false }))
+        setForm(f => (furiganaEdited ? f : { ...f, furigana: j.furigana }))
       }
     } finally { setFuriganaLoading(false) }
   }
@@ -179,7 +177,6 @@ export default function PhonebookClient({
     setForm({
       name: e.name,
       furigana: e.furigana ?? e.name_kana ?? '',
-      furigana_verified: e.furigana_verified,
       category_key: e.category_key,
       group_name: e.group_name ?? '',
       memo: e.memo ?? '',
@@ -203,7 +200,6 @@ export default function PhonebookClient({
       const body = {
         name: form.name,
         furigana: form.furigana || null,
-        furigana_verified: form.furigana_verified,
         category_key: form.category_key,
         group_name: form.group_name || null,
         memo: form.memo || null,
@@ -351,7 +347,7 @@ export default function PhonebookClient({
                     ? v.key === 'blocked'
                       ? 'bg-red-600 text-white border-red-600'
                       : 'bg-slate-700 text-white border-slate-700'
-                    : 'bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-slate-300 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-700'
+                    : 'bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-slate-300 dark:border-gray-600 hover:bg-slate-50'
                 }`}>
                 {v.label}
               </button>
@@ -367,10 +363,6 @@ export default function PhonebookClient({
           <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
             <input type="checkbox" checked={activeOnly} onChange={e => setActiveOnly(e.target.checked)} className="rounded" />
             在職者のみ
-          </label>
-          <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
-            <input type="checkbox" checked={unverifiedOnly} onChange={e => setUnverifiedOnly(e.target.checked)} className="rounded" />
-            ふりがな未確認のみ
           </label>
           {isAdmin && (
             <div className="ml-auto flex gap-1">
@@ -454,17 +446,10 @@ export default function PhonebookClient({
                 if (pasted.trim()) setTimeout(() => autoFurigana(pasted), 0)
               }}
               className={input} />
-            <div className="flex items-center gap-2">
-              <input placeholder={furiganaLoading ? 'ふりがな生成中…' : 'ふりがな（自動・修正可）'}
-                value={form.furigana}
-                onChange={e => { setFuriganaEdited(true); setForm({ ...form, furigana: e.target.value, furigana_verified: false }) }}
-                className={`${input} flex-1`} />
-              <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 cursor-pointer whitespace-nowrap">
-                <input type="checkbox" checked={form.furigana_verified}
-                  onChange={e => setForm({ ...form, furigana_verified: e.target.checked })} className="rounded" />
-                確認済
-              </label>
-            </div>
+            <input placeholder={furiganaLoading ? 'ふりがな生成中…' : 'ふりがな（自動・修正可）'}
+              value={form.furigana}
+              onChange={e => { setFuriganaEdited(true); setForm({ ...form, furigana: e.target.value }) }}
+              className={input} />
             <select value={form.category_key}
               onChange={e => setForm({ ...form, category_key: e.target.value })} className={input}>
               {categories.map(c => (
@@ -615,7 +600,7 @@ export default function PhonebookClient({
               </tr>
             ) : filtered.map(e => (
               <Fragment key={e.id}>
-              <tr className="border-b last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/60 align-top">
+              <tr className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800 align-top">
                 <td className="px-4 py-2">
                   <div className="font-medium text-gray-700 dark:text-gray-300">
                     {e.name}
@@ -631,12 +616,7 @@ export default function PhonebookClient({
                     )}
                   </div>
                   {(e.furigana || e.name_kana) && (
-                    <div className="text-xs text-gray-400 dark:text-gray-500">
-                      {e.furigana ?? e.name_kana}
-                      {e.furigana && !e.furigana_verified && (
-                        <span className="ml-1 px-1 py-px rounded text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">未確認</span>
-                      )}
-                    </div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500">{e.furigana ?? e.name_kana}</div>
                   )}
                 </td>
                 <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-300">

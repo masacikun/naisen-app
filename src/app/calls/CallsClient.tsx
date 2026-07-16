@@ -13,7 +13,7 @@ type Call = {
 export type ResolvedEntry = {
   caller: string
   name: string
-  source: '電話帳' | '取引先' | '従業員'
+  source: '電話帳' | '名刺' | '取引先' | '従業員'
   entryId?: number
   note: string | null
   blocked?: boolean
@@ -30,6 +30,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 const SOURCE_STYLE: Record<string, string> = {
   '電話帳': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+  '名刺':   'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
   '取引先': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
   '従業員': 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
 }
@@ -50,6 +51,16 @@ function fmtSec(s: number) {
   if (!s) return '-'
   const m = Math.floor(s / 60)
   return m ? `${m}分${s % 60 ? s % 60 + '秒' : ''}` : `${s}秒`
+}
+
+// 知らない番号のネット検索アシスト（最終判断は人間）
+const NUMBER_SEARCH_SITES = [
+  { label: 'Google',     url: (n: string) => `https://www.google.com/search?q=%22${n}%22` },
+  { label: 'jpnumber',   url: (n: string) => `https://www.jpnumber.com/searchnumber.do?number=${n}` },
+  { label: '電話帳ナビ', url: (n: string) => `https://www.telnavi.jp/phone/${n}` },
+]
+function isSearchableNumber(caller?: string | null): boolean {
+  return !!caller && caller.startsWith('0') && caller.length >= 10
 }
 
 export default function CallsClient({
@@ -366,6 +377,15 @@ export default function CallsClient({
                           placeholder="名前" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
                         <input value={editNote} onChange={e => setEditNote(e.target.value)}
                           placeholder="メモ（任意）" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
+                        {isSearchableNumber(editCaller) && (
+                          <div className="flex gap-2 text-[11px] text-gray-400 dark:text-gray-500 items-center">
+                            <span>ネットで調べる:</span>
+                            {NUMBER_SEARCH_SITES.map(s => (
+                              <a key={s.label} href={s.url(editCaller)} target="_blank" rel="noopener noreferrer"
+                                className="text-indigo-500 hover:underline">{s.label}</a>
+                            ))}
+                          </div>
+                        )}
                         {editError && <div className="text-xs text-red-600">{editError}</div>}
                         <div className="flex gap-1">
                           <button onClick={saveEntry} disabled={saving || !editName.trim()}
@@ -411,6 +431,13 @@ export default function CallsClient({
                             <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{info.note}</div>
                           )}
                         </div>
+                        {!info && isSearchableNumber(c.caller) && (
+                          <a href={NUMBER_SEARCH_SITES[0].url(c.caller)} target="_blank" rel="noopener noreferrer"
+                            className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 text-xs mt-0.5 transition-opacity"
+                            title="この番号をネットで検索">
+                            🔍
+                          </a>
+                        )}
                         {c.caller && isAdmin && (
                           <button onClick={() => openEdit(c.id, c.caller)}
                             className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-300 text-xs mt-0.5 transition-opacity"

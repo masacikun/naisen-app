@@ -7,6 +7,7 @@ import {
   type ResolvedName,
   type PhonebookMatchRow,
   type PartnerRow,
+  type MeishiRow,
 } from './phonebook-match'
 
 export type { ResolvedName } from './phonebook-match'
@@ -40,8 +41,8 @@ export async function resolveCallerNames(callers: string[]): Promise<Map<string,
     }
   }
 
-  // master フォールバック: 小規模テーブルのため全件取得し、正規化はコード側で行う
-  const [{ data: partners }, { data: employees }] = await Promise.all([
+  // master・名刺フォールバック: 小規模テーブルのため全件取得し、正規化はコード側で行う
+  const [{ data: partners }, { data: employees }, { data: meishi }] = await Promise.all([
     supabaseAdmin
       .from('partners')
       .select('partner_no,partner_name,phone')
@@ -51,6 +52,10 @@ export async function resolveCallerNames(callers: string[]): Promise<Map<string,
       .from('employees')
       .select('last_name,first_name,phone_landline')
       .not('phone_landline', 'is', null),
+    supabaseAdmin
+      .from('business_cards')
+      .select('name,company,tel,mobile')
+      .or('tel.not.is.null,mobile.not.is.null'),
   ])
 
   const employeeRows = ((employees ?? []) as {
@@ -60,7 +65,7 @@ export async function resolveCallerNames(callers: string[]): Promise<Map<string,
     phone_landline: e.phone_landline,
   }))
 
-  return buildNameMap(uniq, pbRows, (partners ?? []) as PartnerRow[], employeeRows)
+  return buildNameMap(uniq, pbRows, (partners ?? []) as PartnerRow[], employeeRows, (meishi ?? []) as MeishiRow[])
 }
 
 /**

@@ -3,7 +3,7 @@
 // 優先順位: 電話帳（主）→ 取引先 → 従業員（master はフォールバック）。
 import { normalizePhone, splitPhones } from './phone'
 
-export type NameSource = '電話帳' | '取引先' | '従業員'
+export type NameSource = '電話帳' | '名刺' | '取引先' | '従業員'
 
 export interface ResolvedName {
   name: string
@@ -19,6 +19,7 @@ export interface PhonebookMatchRow {
 }
 export interface PartnerRow { partner_no: number; partner_name: string; phone: string | null }
 export interface EmployeeRow { name: string; phone_landline: string | null }
+export interface MeishiRow { name: string | null; company: string | null; tel: string | null; mobile: string | null }
 
 /** caller(原表記)の配列を正規化番号で突合し、caller→表示名(出所付き)の Map を返す */
 export function buildNameMap(
@@ -26,8 +27,9 @@ export function buildNameMap(
   phonebook: PhonebookMatchRow[],
   partners: PartnerRow[],
   employees: EmployeeRow[],
+  meishi: MeishiRow[] = [],
 ): Map<string, ResolvedName> {
-  // 優先度の低い順に詰め、高い方で上書き（従業員 → 取引先 → 電話帳）
+  // 優先度の低い順に詰め、高い方で上書き（従業員 → 取引先 → 名刺 → 電話帳）
   const byNorm = new Map<string, ResolvedName>()
   for (const e of employees) {
     const n = e.phone_landline ? normalizePhone(e.phone_landline) : null
@@ -36,6 +38,15 @@ export function buildNameMap(
   for (const p of partners) {
     const n = p.phone ? normalizePhone(p.phone) : null
     if (n) byNorm.set(n, { name: p.partner_name, source: '取引先' })
+  }
+  for (const m of meishi) {
+    // 表示は「会社 氏名」（片方欠けは有る方のみ）。tel/mobile の両方を突合キーにする
+    const label = [m.company, m.name].filter(Boolean).join(' ')
+    if (!label) continue
+    for (const raw of [m.tel, m.mobile]) {
+      const n = raw ? normalizePhone(raw) : null
+      if (n) byNorm.set(n, { name: label, source: '名刺' })
+    }
   }
   for (const row of phonebook) {
     if (!row.phone_normalized) continue

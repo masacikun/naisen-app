@@ -93,6 +93,10 @@ function Section({ title, color, rows }: { title: string; color: 'red' | 'green'
                   </div>
                 )}
                 <span className="font-mono text-xs text-indigo-600 dark:text-indigo-400">{r.caller}</span>
+                {!r.caller_name && r.caller?.startsWith('0') && r.caller.length >= 10 && (
+                  <a href={`https://www.google.com/search?q=%22${r.caller}%22`} target="_blank" rel="noopener noreferrer"
+                    className="ml-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 text-xs" title="この番号をネットで検索">🔍</a>
+                )}
               </td>
               <td className="px-4 py-2 font-medium text-gray-700 dark:text-gray-300">{r.line_name || '-'}</td>
               <td className="px-4 py-2 text-center">

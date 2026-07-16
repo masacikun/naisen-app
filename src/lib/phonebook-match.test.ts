@@ -37,6 +37,29 @@ describe('buildNameMap', () => {
     expect(map.get('0312345678')?.source).toBe('電話帳')
   })
 
+  it('名刺フォールバック: 会社+氏名で表示・tel と mobile 両方が突合キー', () => {
+    const map = buildNameMap(
+      ['0312345678', '09012345678'],
+      [], [], [],
+      [{ name: 'テスト太郎', company: 'テスト商事', tel: '03-1234-5678', mobile: '090-1234-5678' }],
+    )
+    expect(map.get('0312345678')).toEqual({ name: 'テスト商事 テスト太郎', source: '名刺' })
+    expect(map.get('09012345678')).toEqual({ name: 'テスト商事 テスト太郎', source: '名刺' })
+  })
+
+  it('優先順位: 電話帳 ＞ 名刺 ＞ 取引先（同一番号）', () => {
+    const meishi = [{ name: '名刺氏名', company: null, tel: '03-1234-5678', mobile: null }]
+    const partner = [{ partner_no: 1, partner_name: '取引先名', phone: '03-1234-5678' }]
+    const withPb = buildNameMap(
+      ['0312345678'],
+      [{ phone_normalized: '0312345678', entry: { id: 1, name: '電話帳名', memo: null } }],
+      partner, [], meishi,
+    )
+    expect(withPb.get('0312345678')?.source).toBe('電話帳')
+    const noPb = buildNameMap(['0312345678'], [], partner, [], meishi)
+    expect(noPb.get('0312345678')).toEqual({ name: '名刺氏名', source: '名刺' })
+  })
+
   it('master フォールバック: ハイフン付き保持形式でも正規化して突合（取引先＞従業員）', () => {
     const map = buildNameMap(
       ['0312345678', '09012345678'],

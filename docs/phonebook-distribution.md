@@ -75,3 +75,64 @@ wsContactsRefreshInterval  = 300
 - 購読の変更・掲載の変更は即 `phonebook_feed_state` が進む → 端末の次回ポーリング（既定180〜300秒）で反映。
 - 人事連動（在職/退職）は暫定 `entries.active` 手動。employees テーブルとの自動連動は内線⇔社員の紐付けキー決定後（§要確認）。
 - pm2 の `--max-memory-restart` は kuromoji 辞書分を見込み 512M（deploy.yml）。
+
+---
+
+## 配布実装（2026-07-17・provlinkbs 方式・1台テスト先行）
+
+### エンドポイント
+`GET /n/api/phonebook/provisioning/groundwire?token=<PROVISIONING_TOKEN>`
+
+- **アプリUA**（`acrobits|groundwire|cloudsoftphone`）→ mergeable `<account>` XML を `application/xml` で返す。
+- **ブラウザ/カメラUA** → `provlinkbs://<host>/…?token=…` へ 302。iOS が Groundwire を起動し、アプリが同 URL を再取得して適用。
+- `token` は `.env.local` の `PROVISIONING_TOKEN`（未設定/不一致=404）。フィードの Basic 認証情報を含むため必須。**token 値は git に入れない**（README/docs は placeholder）。
+- 返す prefKey（`priority=5 source=provisioning` の mergeable ＝ 既存 SIP アカウント温存）:
+  - `wsContactsUrl` = `https://banto.hakata-yamato.co.jp/n/api/phonebook/acrobits?user=%account[username]%`
+  - `wsContactsAuthUsername` / `wsContactsAuthPassword` = `PHONEBOOK_USER` / `PHONEBOOK_PASS`
+  - `wsContactsRefresh` と `wsContactsRefreshInterval` = 300（キー名の版差ヘッジで両方。テスト後に有効な方へ整理＝要確認）
+- **個人連絡先**: 連絡先ソース `ab`（本体）には触れない → 本体連絡先は ON のまま。会社（`ws`）は別ソースとして追加され、Groundwire 上で会社/個人を切替表示。iPhone「連絡先」アプリには書き込まない（`ws` は端末内の別ストア）。
+
+### provlink スキーム（Acrobits 4種）
+| scheme | 転送 | モード |
+|---|---|---|
+| provlink | http | 置換 |
+| provlinks | https | 置換 |
+| provlinkb | http | マージ（既存温存） |
+| **provlinkbs** | **https** | **マージ（既存温存）** ← 採用 |
+
+### iOS 読み込み手順（retail Groundwire・実機基準）
+前提: 対象 iPhone に Groundwire インストール済み・SIP アカウント登録済み。
+
+1. 配布リンクを対象 iPhone で開く／QR をカメラで読む。
+   - 主動線: **https リンク**を Safari で開く → サーバーが `provlinkbs://` へ 302 →「"Groundwire" で開きますか?」→ 開く → 取り込み。
+   - フォールバック: `provlinkbs://…` を直接タップ（メモ/メール等から）。
+2. Groundwire がプロビジョニング適用の確認を出したら承認。マージ方式のため既存アカウントは消えない。
+3. Groundwire → 連絡先 → ソース切替に「Web（会社電話帳）」が増える。初回同期で会社電話帳が入る。
+   - ※retail Groundwire はプロビジョニング UI が版により異なる。取り込めない場合は実機の挙動/詰まりポイントを要報告。
+
+### 配布リンク/QR（1台テスト用・token 値は別途 1Password / チャット）
+- https（QR 推奨）: `https://banto.hakata-yamato.co.jp/n/api/phonebook/provisioning/groundwire?token=<PROVISIONING_TOKEN>`
+- 直リンク: `provlinkbs://banto.hakata-yamato.co.jp/n/api/phonebook/provisioning/groundwire?token=<PROVISIONING_TOKEN>`
+- 本番配布時は端末ごとに使い捨て token を推奨。
+
+### nginx（本エンドポイント用バイパス・2026-07-17 適用・token がアプリ層の門）
+```nginx
+    # Groundwire プロビジョニング配布（token 保護・UA判定で provlinkbs 誘導・IP制限なし）
+    location = /n/api/phonebook/provisioning/groundwire {
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Auth-User "";
+        proxy_set_header X-Auth-Email "";
+        proxy_set_header X-Auth-Role "";
+        proxy_pass http://naisen_app;
+    }
+```
+
+### 検証観点（まさし携帯1台）
+1. Groundwire の連絡先に会社電話帳が出る（購読なし=all=約184件）。
+2. iPhone「連絡先」アプリに会社データが**書かれていない**（本体が汚れない・重複しない）。
+3. ふりがな順（あいうえお）で並ぶ（`fnamePhonetic`）。
+4. Groundwire 上で1件消しても次の同期で復活（サーバー正）。

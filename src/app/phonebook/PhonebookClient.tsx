@@ -63,13 +63,13 @@ function fmtSec(s: number) {
 }
 
 export default function PhonebookClient({
-  initialEntries, partners, isAdmin,
+  initialEntries, partners, isAdmin, initialQ = '',
 }: {
-  initialEntries: Entry[]; partners: PartnerOption[]; isAdmin: boolean
+  initialEntries: Entry[]; partners: PartnerOption[]; isAdmin: boolean; initialQ?: string
 }) {
   const [entries, setEntries] = useState<Entry[]>(initialEntries)
-  const [view, setView] = useState<View>('normal')
-  const [q, setQ] = useState('')
+  const [view, setView] = useState<View>(initialQ ? 'all' : 'normal')
+  const [q, setQ] = useState(initialQ)
   const [editingId, setEditingId] = useState<number | 'new' | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)

@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { useState, useCallback } from 'react'
 import { BRANDS } from '@/lib/brands'
@@ -74,6 +75,7 @@ export default function CallsClient({
   const [minDur,     setMinDur]     = useState(filters.minDur || '')
   const [excludeInt, setExcludeInt] = useState(excludeIntDefault)
   const [hasMemo,    setHasMemo]    = useState(filters.hasMemo === '1')
+  const [blockedOnly, setBlockedOnly] = useState(filters.blocked === '1')
 
   // ── 相手名（電話帳/master 突合結果）と電話帳インライン登録 ──
   const [nameMap, setNameMap] = useState<Map<string, Omit<ResolvedEntry, 'caller'>>>(
@@ -90,7 +92,7 @@ export default function CallsClient({
   function buildUrl(ov: {
     q?: string; from?: string; to?: string
     brands?: Set<string>; statuses?: Set<string>
-    minDur?: string; excludeInt?: boolean; hasMemo?: boolean; page?: number
+    minDur?: string; excludeInt?: boolean; hasMemo?: boolean; blocked?: boolean; page?: number
   } = {}) {
     const v = {
       q:          ov.q          !== undefined ? ov.q          : q,
@@ -101,6 +103,7 @@ export default function CallsClient({
       minDur:     ov.minDur     !== undefined ? ov.minDur     : minDur,
       excludeInt: ov.excludeInt !== undefined ? ov.excludeInt : excludeInt,
       hasMemo:    ov.hasMemo    !== undefined ? ov.hasMemo    : hasMemo,
+      blocked:    ov.blocked    !== undefined ? ov.blocked    : blockedOnly,
       page:       ov.page       !== undefined ? ov.page       : page,
     }
     const p: Record<string, string> = {}
@@ -112,6 +115,7 @@ export default function CallsClient({
     if (v.minDur)              p.minDur     = v.minDur
     if (!v.excludeInt)         p.excludeInt = '0'
     if (v.hasMemo)             p.hasMemo    = '1'
+    if (v.blocked)             p.blocked    = '1'
     if (v.page > 1)            p.page       = String(v.page)
     return `${pathname}?${new URLSearchParams(p).toString()}`
   }
@@ -140,7 +144,7 @@ export default function CallsClient({
   function reset() {
     setQ(''); setFrom(''); setTo('')
     setBrands(new Set()); setStatuses(new Set())
-    setMinDur(''); setExcludeInt(true); setHasMemo(false)
+    setMinDur(''); setExcludeInt(true); setHasMemo(false); setBlockedOnly(false)
     router.push(pathname)
   }
 
@@ -154,6 +158,7 @@ export default function CallsClient({
     if (minDur)        p.minDur     = minDur
     if (!excludeInt)   p.excludeInt = '0'
     if (hasMemo)       p.hasMemo    = '1'
+    if (blockedOnly)   p.blocked    = '1'
     window.open(`/n/api/calls-export?${new URLSearchParams(p).toString()}`)
   }
 
@@ -309,6 +314,13 @@ export default function CallsClient({
                 </span>
               </label>
             ))}
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input type="checkbox" checked={blockedOnly}
+                onChange={() => { const n = !blockedOnly; setBlockedOnly(n); nav({ blocked: n }) }} className="rounded" />
+              <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                着信拒否
+              </span>
+            </label>
           </div>
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">通話時間:</span>
@@ -373,7 +385,12 @@ export default function CallsClient({
                         <div>
                           {(info?.name || c.caller_name) && (
                             <div className="text-gray-700 dark:text-gray-300 font-medium text-xs mb-0.5">
-                              {info?.name || c.caller_name}
+                              {info?.source === '電話帳' ? (
+                                <Link href={`/phonebook?q=${encodeURIComponent(c.caller)}`}
+                                  className="hover:underline text-indigo-700 dark:text-indigo-300" title="電話帳で開く">
+                                  {info.name}
+                                </Link>
+                              ) : (info?.name || c.caller_name)}
                               {info && (
                                 <span className={`ml-1 px-1 py-px rounded text-[10px] font-normal ${SOURCE_STYLE[info.source] ?? ''}`}>
                                   {info.source}

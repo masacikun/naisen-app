@@ -6,7 +6,12 @@ import { attachLastCalls } from '@/lib/call-history-server'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PhonebookPage() {
+export default async function PhonebookPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>
+}) {
+  const { q } = await searchParams
   const h = await headers()
   const isAdmin = h.get('x-auth-role') === 'admin'
 
@@ -27,6 +32,7 @@ export default async function PhonebookPage() {
 
   return (
     <PhonebookClient
+      initialQ={q ?? ''}
       initialEntries={withLast as Entry[]}
       partners={(partners ?? []) as PartnerOption[]}
       isAdmin={isAdmin}

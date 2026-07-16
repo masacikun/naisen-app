@@ -2,7 +2,7 @@ export const metadata = { title: '通話履歴' }
 import { headers } from 'next/headers'
 import { supabaseServer } from '@/lib/supabaseServer'
 import { BRANDS } from '@/lib/brands'
-import { resolveCallerNames, fetchPhonebookNormalized } from '@/lib/phonebook'
+import { resolveCallerNames } from '@/lib/phonebook'
 import CallsClient, { type ResolvedEntry } from './CallsClient'
 
 export const dynamic = 'force-dynamic'
@@ -11,6 +11,7 @@ export type CallsFilters = {
   q?: string; from?: string; to?: string
   brands?: string; statuses?: string
   minDur?: string; excludeInt?: string; hasMemo?: string
+  blocked?: string
   page?: string
 }
 
@@ -28,10 +29,13 @@ export default async function CallsPage({
   const statusList = sp.statuses ? sp.statuses.split(',').filter(Boolean) : []
   const excludeInt = sp.excludeInt !== '0'          // default ON
   const hasMemo    = sp.hasMemo === '1'
+  const blockedOnly = sp.blocked === '1'
   const minDur     = sp.minDur ? parseInt(sp.minDur) : null
 
+  // naisen_calls_ex = naisen_calls + 電話帳突合フラグ(in_phonebook/is_blocked)のビュー
+  // （電話帳の全番号を .in() で渡すと URL 長超過で 502 になるため DB 側で判定）
   let query = supabaseServer
-    .from('naisen_calls')
+    .from('naisen_calls_ex')
     .select('*', { count: 'exact' })
     .order('started_at', { ascending: false })
     .range(offset, offset + limit - 1)
@@ -49,13 +53,8 @@ export default async function CallsPage({
   if (minDur)       query = query.gte('duration_sec', minDur)
   if (excludeInt)   query = query.or('caller.is.null,caller.like.0%')
 
-  if (hasMemo) {
-    // 「電話帳あり」フィルタ: naisen_calls.caller は数字のみ保持のため正規化番号と完全一致する
-    const norms = await fetchPhonebookNormalized(500)
-    query = norms.length > 0
-      ? query.in('caller', norms)
-      : (query as typeof query).eq('id', -1)
-  }
+  if (hasMemo)     query = query.eq('in_phonebook', true)
+  if (blockedOnly) query = query.eq('is_blocked', true)
 
   const { data, count } = await query
   const calls = data ?? []

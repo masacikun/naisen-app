@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabaseServer'
 import { BRANDS } from '@/lib/brands'
-import { resolveCallerNames, fetchPhonebookNormalized } from '@/lib/phonebook'
+import { resolveCallerNames } from '@/lib/phonebook'
 
 function toJST(utcStr: string) {
   const d = new Date(new Date(utcStr).getTime() + 9 * 60 * 60 * 1000)
@@ -29,13 +29,15 @@ export async function GET(req: NextRequest) {
   const statusList = (sp.get('statuses') || '').split(',').filter(Boolean)
   const excludeInt = sp.get('excludeInt') !== '0'
   const hasMemo    = sp.get('hasMemo') === '1'
+  const blockedOnly = sp.get('blocked') === '1'
   const minDur     = sp.get('minDur') ? parseInt(sp.get('minDur')!) : null
   const q          = sp.get('q') || ''
   const from       = sp.get('from') || ''
   const to         = sp.get('to') || ''
 
+  // naisen_calls_ex = 電話帳突合フラグ付きビュー（/calls ページと同一のフィルタ意味論）
   let query = supabaseServer
-    .from('naisen_calls')
+    .from('naisen_calls_ex')
     .select('started_at,caller,caller_name,line_name,ivr_route,duration_sec,status')
     .order('started_at', { ascending: false })
     .limit(5000)
@@ -53,19 +55,8 @@ export async function GET(req: NextRequest) {
   if (minDur)     query = query.gte('duration_sec', minDur)
   if (excludeInt) query = query.or('caller.is.null,caller.like.0%')
 
-  if (hasMemo) {
-    // 「電話帳あり」フィルタ（電話帳の正規化番号と caller の完全一致）
-    const norms = await fetchPhonebookNormalized(500)
-    if (norms.length > 0) query = query.in('caller', norms)
-    else {
-      return new NextResponse('', {
-        headers: {
-          'Content-Type': 'text/csv; charset=utf-8-sig',
-          'Content-Disposition': 'attachment; filename="calls.csv"',
-        },
-      })
-    }
-  }
+  if (hasMemo)     query = query.eq('in_phonebook', true)
+  if (blockedOnly) query = query.eq('is_blocked', true)
 
   const { data } = await query
 

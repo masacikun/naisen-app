@@ -26,6 +26,30 @@
 - 共通仕様: `?groups=`（旧形式・group_name 絞り＝テスト用オーバーライド・user と両方来たら groups 優先）／退職・blocked 除外／`If-Modified-Since`→304（`Last-Modified`=feed_state）／番号はダイヤル可能形（先頭0国内表記・内線は数字そのまま）
 - 端末は動的IPのため **IP制限不可＝Basic over https**。IP固定許可は `/lookup`（PBX）のみ。
 
+## CardDAV 配信（retail Groundwire の正式経路・2026-07-17）
+
+**retail（App Store版）Groundwire は provlinkbs:// スキーム未登録**でプロビジョニング起動不可と実機確定
+（「Groundwireで開く」ボタン・Appleメモのリンクとも発火せず）。そのため **CardDAV を主経路**とする。
+wsContacts 版（下記プロビジョニング雛形）は将来のビジネス版/別端末用に温存。
+
+- 実体: `carddav/server.mjs`（**pm2: naisen-carddav・port 3012・別プロセス**。Next.js App Router が
+  PROPFIND/REPORT を受けられないためサイドカー。純ロジック=carddav/lib.mjs・vitest対象）
+- URL: `https://banto.hakata-yamato.co.jp/n/carddav/<内線番号 or all>/` … このパスが addressbook コレクション。
+  `?user=` クエリではなく**パスで内線を指定**（CardDAV クライアントはクエリを保持しない場合があるため）。
+  購読解決・退職/blocked除外・内線番号配信は acrobits フィードを localhost 経由で再利用（ロジック単一）。
+  `all` は購読なしフォールバックで all 電話帳（約184件）。
+- 認証: 同じ Basic（PHONEBOOK_USER/PASS）・https のみ。nginx `location ^~ /n/carddav/` → 127.0.0.1:3012
+  （auth_request バイパス・X-Auth-* 空化・IP制限なし=端末動的IP）。
+- vCard 3.0: FN/N・TEL（内線含む全番号・X-LABEL=区分）・UID=bantosan-<id>・REV=updated_at。
+  **ふりがなは X-PHONETIC-FIRST-NAME / X-PHONETIC-LAST-NAME / SORT-STRING の3キーに載せる**
+  （iOS/Groundwire がどれを解釈するかは実機確認で絞る予定）。
+- 対応メソッド: OPTIONS / PROPFIND(depth 0/1) / REPORT(addressbook-query=全量・addressbook-multiget=指定href) /
+  GET(単品 .vcf とコレクション一括 .vcf)。書き込み系は 403（番頭さんが正・読み取り専用）。
+  全リクエストを pm2 ログに記録（実機の要求採取用: `pm2 logs naisen-carddav`）。
+- 運用: Actions デプロイは naisen-carddav も restart（workflow に追加済み）。手動時は `pm2 restart naisen-carddav`。
+- 端末手順（利用者向け）: smile-mgmt `manual/naisen.html`「スマホに会社電話帳を入れる」参照。
+  Groundwire アプリ内の連絡先ソースとして繋ぐため **iPhone 本体連絡先には同期されない**。
+
 ## Acrobits プロビジョニング雛形（グローバル prefKey・全端末同一でよい）
 
 ```

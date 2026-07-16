@@ -170,3 +170,5 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## マニュアル
 利用者向けマニュアル: https://banto.hakata-yamato.co.jp/manual/naisen.html （NavBarの📖からも開ける。実体は smile-mgmt/manual/）
+
+- **CardDAV 配信（2026-07-17・retail Groundwire 正式経路）**: `carddav/server.mjs`（pm2: naisen-carddav・port 3012・サイドカー）。URL=`/n/carddav/<内線 or all>/`・Basic同認証・vCardふりがな付き。詳細は docs/phonebook-distribution.md。

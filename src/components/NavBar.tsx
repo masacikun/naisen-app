@@ -59,6 +59,7 @@ export default function NavBar() {
                 {link.label}
               </a>
             ))}
+            <a href="/manual/naisen.html" title="番頭さんマニュアル" className="px-2 py-1.5 rounded text-sm text-slate-300 hover:text-white hover:bg-slate-700 transition-colors whitespace-nowrap">📖</a>
             <UserMenu />
           </div>
         </nav>

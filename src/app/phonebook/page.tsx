@@ -23,7 +23,7 @@ export default async function PhonebookPage({
       .limit(2000),
     supabaseServer
       .from('partners')
-      .select('partner_no,partner_name')
+      .select('partner_no,partner_name,phone')
       .eq('is_deleted', false)
       .order('partner_name'),
   ])

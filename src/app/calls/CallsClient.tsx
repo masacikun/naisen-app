@@ -17,6 +17,8 @@ export type ResolvedEntry = {
   entryId?: number
   note: string | null
   blocked?: boolean
+  partnerNo?: number
+  partnerName?: string
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -90,7 +92,7 @@ export default function CallsClient({
 
   // ── 相手名（電話帳/master 突合結果）と電話帳インライン登録 ──
   const [nameMap, setNameMap] = useState<Map<string, Omit<ResolvedEntry, 'caller'>>>(
-    () => new Map(names.map(n => [n.caller, { name: n.name, source: n.source, entryId: n.entryId, note: n.note, blocked: n.blocked }]))
+    () => new Map(names.map(n => [n.caller, { name: n.name, source: n.source, entryId: n.entryId, note: n.note, blocked: n.blocked, partnerNo: n.partnerNo, partnerName: n.partnerName }]))
   )
   const [editingId,   setEditingId]   = useState<number | null>(null)
   const [editCaller,  setEditCaller]  = useState('')
@@ -201,7 +203,9 @@ export default function CallsClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(isPhonebook
           ? { name: editName.trim(), memo: editNote.trim() || null }
-          : { name: editName.trim(), memo: editNote.trim() || null, numbers: [editCaller] }),
+          // 新規登録: 番号が取引先と一致していれば partner_id を自動リンク（案B・2026-07-16 まさし承認）
+          : { name: editName.trim(), memo: editNote.trim() || null, numbers: [editCaller],
+              partner_id: ex?.source === '取引先' && ex.partnerNo != null ? ex.partnerNo : null }),
       })
       if (!res.ok) {
         setEditError(res.status === 403 ? '登録は管理者のみ可能です' : `保存エラー (${res.status})`)
@@ -210,6 +214,7 @@ export default function CallsClient({
       const saved = await res.json()
       setNameMap(prev => new Map(prev).set(editCaller, {
         name: editName.trim(), source: '電話帳', entryId: saved.id, note: editNote.trim() || null, blocked: saved.blocked ?? false,
+        partnerName: ex?.source === '取引先' ? ex.name : ex?.partnerName,
       }))
       setEditingId(null)
     } finally { setSaving(false) }
@@ -377,6 +382,11 @@ export default function CallsClient({
                           placeholder="名前" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
                         <input value={editNote} onChange={e => setEditNote(e.target.value)}
                           placeholder="メモ（任意）" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
+                        {nameMap.get(editCaller)?.source === '取引先' && (
+                          <div className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                            保存時に取引先「{nameMap.get(editCaller)?.name}」とリンクします
+                          </div>
+                        )}
                         {isSearchableNumber(editCaller) && (
                           <div className="flex gap-2 text-[11px] text-gray-400 dark:text-gray-500 items-center">
                             <span>ネットで調べる:</span>
@@ -411,6 +421,9 @@ export default function CallsClient({
                                   {info.name}
                                 </Link>
                               ) : (info?.name || c.caller_name)}
+                              {info?.partnerName && (
+                                <span className="ml-1 text-[10px] text-gray-400 dark:text-gray-500 font-normal">（取引先: {info.partnerName}）</span>
+                              )}
                               {info && (
                                 <span className={`ml-1 px-1 py-px rounded text-[10px] font-normal ${SOURCE_STYLE[info.source] ?? ''}`}>
                                   {info.source}

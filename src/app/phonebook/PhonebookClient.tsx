@@ -1,5 +1,6 @@
 'use client'
 import { Fragment, useState } from 'react'
+import { normalizePhone, splitPhones } from '@/lib/phone'
 
 export type PhoneNumber = {
   id: number
@@ -19,7 +20,7 @@ export type Entry = {
   last_called_at: string | null
   phonebook_numbers: PhoneNumber[]
 }
-export type PartnerOption = { partner_no: number; partner_name: string }
+export type PartnerOption = { partner_no: number; partner_name: string; phone?: string | null }
 
 type NumberForm = { raw: string; label: string }
 type View = 'normal' | 'blocked' | 'all'
@@ -281,6 +282,32 @@ export default function PhonebookClient({
             ))}
             <button onClick={() => setForm({ ...form, numbers: [...form.numbers, { raw: '', label: '' }] })}
               className="px-2 py-1 rounded border text-xs text-gray-600 dark:text-gray-300">＋ 番号追加</button>
+            {(() => {
+              // 案B: 入力番号が取引先マスタと一致したらリンクを提案（自動マージはしない・人間が確定）
+              const norms = form.numbers
+                .flatMap(n => splitPhones(n.raw))
+                .map(sp => sp.normalized)
+                .filter((x): x is string => !!x)
+              if (norms.length === 0) return null
+              const cur = form.partner_id ? parseInt(form.partner_id) : null
+              const hits = partners.filter(p => {
+                if (!p.phone || p.partner_no === cur) return false
+                const pn = normalizePhone(p.phone)
+                return !!pn && norms.includes(pn)
+              })
+              if (hits.length === 0) return null
+              return (
+                <div className="rounded border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 space-y-1">
+                  {hits.map(p => (
+                    <div key={p.partner_no} className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-300">
+                      <span>取引先「{p.partner_name}」が同じ番号です</span>
+                      <button onClick={() => setForm({ ...form, partner_id: String(p.partner_no) })}
+                        className="px-2 py-0.5 rounded bg-emerald-600 text-white text-xs">リンクする</button>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
 
           {error && <div className="text-xs text-red-600">{error}</div>}

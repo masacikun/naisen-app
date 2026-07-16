@@ -37,6 +37,16 @@ describe('buildNameMap', () => {
     expect(map.get('0312345678')?.source).toBe('電話帳')
   })
 
+  it('partner_id リンク済み電話帳エントリは partnerName が付く', () => {
+    const map = buildNameMap(
+      ['0312345678'],
+      [{ phone_normalized: '0312345678', entry: { id: 1, name: '電話帳名', memo: null, partner_id: 9 } }],
+      [{ partner_no: 9, partner_name: '取引先名', phone: null }],
+      [],
+    )
+    expect(map.get('0312345678')).toMatchObject({ name: '電話帳名', source: '電話帳', partnerName: '取引先名' })
+  })
+
   it('名刺フォールバック: 会社+氏名で表示・tel と mobile 両方が突合キー', () => {
     const map = buildNameMap(
       ['0312345678', '09012345678'],
@@ -70,7 +80,7 @@ describe('buildNameMap', () => {
         { name: '従業員B', phone_landline: '090-1234-5678' },
       ],
     )
-    expect(map.get('0312345678')).toEqual({ name: '取引先名', source: '取引先' })
+    expect(map.get('0312345678')).toEqual({ name: '取引先名', source: '取引先', partnerNo: 9 })
     expect(map.get('09012345678')).toEqual({ name: '従業員B', source: '従業員' })
   })
 

@@ -63,6 +63,7 @@ export default async function CallsPage({
   const nameMap = await resolveCallerNames(calls.map(c => c.caller).filter(Boolean) as string[])
   const names: ResolvedEntry[] = [...nameMap.entries()].map(([caller, r]) => ({
     caller, name: r.name, source: r.source, entryId: r.entryId, note: r.note ?? null, blocked: r.blocked ?? false,
+    partnerNo: r.partnerNo, partnerName: r.partnerName,
   }))
 
   const isAdmin = (await headers()).get('x-auth-role') === 'admin'

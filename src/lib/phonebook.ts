@@ -18,8 +18,8 @@ const IN_CHUNK = 100
 type RawPbRow = {
   phone_normalized: string | null
   phonebook_entries:
-    | { id: number; name: string; memo: string | null; blocked?: boolean }
-    | { id: number; name: string; memo: string | null; blocked?: boolean }[]
+    | { id: number; name: string; memo: string | null; blocked?: boolean; partner_id?: number | null }
+    | { id: number; name: string; memo: string | null; blocked?: boolean; partner_id?: number | null }[]
     | null
 }
 
@@ -33,7 +33,7 @@ export async function resolveCallerNames(callers: string[]): Promise<Map<string,
   for (let i = 0; i < norms.length; i += IN_CHUNK) {
     const { data } = await supabaseAdmin
       .from('phonebook_numbers')
-      .select('phone_normalized, phonebook_entries(id,name,memo,blocked)')
+      .select('phone_normalized, phonebook_entries(id,name,memo,blocked,partner_id)')
       .in('phone_normalized', norms.slice(i, i + IN_CHUNK))
     for (const r of (data ?? []) as RawPbRow[]) {
       const e = Array.isArray(r.phonebook_entries) ? r.phonebook_entries[0] : r.phonebook_entries
@@ -43,11 +43,11 @@ export async function resolveCallerNames(callers: string[]): Promise<Map<string,
 
   // master・名刺フォールバック: 小規模テーブルのため全件取得し、正規化はコード側で行う
   const [{ data: partners }, { data: employees }, { data: meishi }] = await Promise.all([
+    // phone 有無を問わず全取引先を取得（電話帳エントリの partner_id → 取引先名の解決にも使う）
     supabaseAdmin
       .from('partners')
       .select('partner_no,partner_name,phone')
-      .eq('is_deleted', false)
-      .not('phone', 'is', null),
+      .eq('is_deleted', false),
     supabaseAdmin
       .from('employees')
       .select('last_name,first_name,phone_landline')

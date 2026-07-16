@@ -11,11 +11,13 @@ export interface ResolvedName {
   entryId?: number
   note?: string | null
   blocked?: boolean
+  partnerNo?: number        // 取引先ヒット時の partner_no（電話帳クイック登録の自動リンク用）
+  partnerName?: string      // 電話帳ヒットで partner_id リンク済みの場合の取引先名
 }
 
 export interface PhonebookMatchRow {
   phone_normalized: string | null
-  entry: { id: number; name: string; memo: string | null; blocked?: boolean }
+  entry: { id: number; name: string; memo: string | null; blocked?: boolean; partner_id?: number | null }
 }
 export interface PartnerRow { partner_no: number; partner_name: string; phone: string | null }
 export interface EmployeeRow { name: string; phone_landline: string | null }
@@ -35,9 +37,10 @@ export function buildNameMap(
     const n = e.phone_landline ? normalizePhone(e.phone_landline) : null
     if (n && e.name) byNorm.set(n, { name: e.name, source: '従業員' })
   }
+  const partnersByNo = new Map(partners.map(p => [p.partner_no, p.partner_name]))
   for (const p of partners) {
     const n = p.phone ? normalizePhone(p.phone) : null
-    if (n) byNorm.set(n, { name: p.partner_name, source: '取引先' })
+    if (n) byNorm.set(n, { name: p.partner_name, source: '取引先', partnerNo: p.partner_no })
   }
   for (const m of meishi) {
     // 表示は「会社 氏名」（片方欠けは有る方のみ）。tel/mobile の両方を突合キーにする
@@ -53,12 +56,14 @@ export function buildNameMap(
     // 同一番号の多重ヒットは決定的に最小 entry_id を採用
     const prev = byNorm.get(row.phone_normalized)
     if (prev?.source === '電話帳' && prev.entryId != null && prev.entryId <= row.entry.id) continue
+    const partnerName = row.entry.partner_id != null ? partnersByNo.get(row.entry.partner_id) : undefined
     byNorm.set(row.phone_normalized, {
       name: row.entry.name,
       source: '電話帳',
       entryId: row.entry.id,
       note: row.entry.memo,
       blocked: row.entry.blocked ?? false,
+      ...(partnerName ? { partnerName } : {}),
     })
   }
 

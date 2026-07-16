@@ -2,6 +2,7 @@
 import { Fragment, useState } from 'react'
 import Link from 'next/link'
 import { normalizePhone, splitPhones } from '@/lib/phone'
+import { filterByView, blockedTogglePatch, type PhonebookView } from '@/lib/phonebook-view'
 
 export type PhoneNumber = {
   id: number
@@ -32,7 +33,7 @@ export type CategoryOption = { key: string; name: string; sort: number; is_syste
 export type BookOption = { key: string; name: string; sort: number }
 
 type NumberForm = { raw: string; label: string; kind: string }
-type View = 'normal' | 'blocked' | 'all'
+type View = PhonebookView
 type HistoryRow = {
   started_at: string; caller: string; line_name: string | null
   status: string; duration_sec: number; recording_file: string | null
@@ -49,7 +50,7 @@ const emptyForm = {
 
 const VIEWS: { key: View; label: string }[] = [
   { key: 'normal',  label: '連絡先' },
-  { key: 'blocked', label: '着信拒否' },
+  { key: 'blocked', label: 'ブラックリスト' },
   { key: 'all',     label: 'すべて' },
 ]
 
@@ -125,7 +126,7 @@ export default function PhonebookClient({
   const bookName = (key: string) => books.find(b => b.key === key)?.name ?? key
 
   const blockedCount = entries.filter(e => e.blocked).length
-  let viewEntries = view === 'all' ? entries : entries.filter(e => e.blocked === (view === 'blocked'))
+  let viewEntries = filterByView(entries, view)
   if (categoryFilter) viewEntries = viewEntries.filter(e => e.category_key === categoryFilter)
   if (activeOnly) viewEntries = viewEntries.filter(e => e.active)
   if (unverifiedOnly) viewEntries = viewEntries.filter(e => !e.furigana_verified)
@@ -229,6 +230,24 @@ export default function PhonebookClient({
     } finally { setSaving(false) }
   }
 
+  // 行単位の blocked トグル（連絡先⇄ブラックリスト相互移動・区分は現状維持）
+  async function toggleBlocked(e: Entry) {
+    setSaving(true)
+    setError('')
+    try {
+      const res = await fetch(`/n/api/phonebook/${e.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(blockedTogglePatch(e)),
+      })
+      if (!res.ok) {
+        setError(res.status === 403 ? '変更は管理者のみ可能です' : `エラー (${res.status})`)
+        return
+      }
+      await reload()
+    } finally { setSaving(false) }
+  }
+
   async function remove(id: number) {
     setSaving(true)
     setError('')
@@ -306,7 +325,7 @@ export default function PhonebookClient({
         <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200">連絡先</h1>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            {entries.length - blockedCount} 件＋拒否 {blockedCount} 件
+            {entries.length - blockedCount} 件＋BL {blockedCount} 件
           </span>
           <Link href="/phonebook/devices"
             className="px-3 py-1.5 rounded border text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -668,6 +687,15 @@ export default function PhonebookClient({
                   <td className="px-4 py-2 text-center whitespace-nowrap">
                     <button onClick={() => openEdit(e)}
                       className="px-2 py-0.5 rounded border text-xs text-gray-600 dark:text-gray-300 mr-1">編集</button>
+                    <button onClick={() => toggleBlocked(e)} disabled={saving}
+                      title={e.blocked ? '解除して連絡先へ戻す（区分は維持）' : 'ブラックリストへ移動'}
+                      className={`px-2 py-0.5 rounded text-xs mr-1 ${
+                        e.blocked
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                          : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                      }`}>
+                      {e.blocked ? '解除' : 'BLへ'}
+                    </button>
                     {deletingId === e.id ? (
                       <>
                         <button onClick={() => remove(e.id)} disabled={saving}

@@ -1,6 +1,6 @@
 // phone.ts 単体テスト（実番号禁止・明らかな合成値のみ使用）
 import { describe, it, expect } from 'vitest'
-import { normalizePhone, splitPhones, isExtension, isCanonicalJp } from './phone'
+import { normalizePhone, splitPhones, isExtension, isCanonicalJp, cleanCnam } from './phone'
 
 describe('normalizePhone', () => {
   it('ハイフン除去（10桁）', () => {
@@ -100,5 +100,27 @@ describe('isCanonicalJp', () => {
     expect(isCanonicalJp('9012345678')).toBe(false) // 先頭0欠落
     expect(isCanonicalJp('031234567')).toBe(false) // 9桁
     expect(isCanonicalJp('090123456789')).toBe(false) // 12桁
+  })
+})
+
+describe('cleanCnam', () => {
+  it('着信名称プレフィックス＋番号のみ → null（実名なし）', () => {
+    expect(cleanCnam('水炊き大和|09000000000')).toBe(null)
+    expect(cleanCnam('他|水炊き大和|09000000000')).toBe(null)
+    expect(cleanCnam('予約|0300000000')).toBe(null)
+  })
+  it('番号そのもの・空 → null', () => {
+    expect(cleanCnam('09000000000')).toBe(null)
+    expect(cleanCnam('090-0000-0000')).toBe(null)
+    expect(cleanCnam('')).toBe(null)
+    expect(cleanCnam(null)).toBe(null)
+    expect(cleanCnam('||')).toBe(null)
+  })
+  it('プレフィックス付きの実名 → 実名のみ', () => {
+    expect(cleanCnam('水炊き大和|YAMADA TARO')).toBe('YAMADA TARO')
+  })
+  it('プレフィックスなしの実名はそのまま', () => {
+    expect(cleanCnam('YAMADA TARO')).toBe('YAMADA TARO')
+    expect(cleanCnam('anonymous')).toBe('anonymous')
   })
 })

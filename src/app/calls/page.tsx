@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { supabaseServer } from '@/lib/supabaseServer'
 import { BRANDS } from '@/lib/brands'
 import { resolveCallerNames } from '@/lib/phonebook'
+import { cleanCnam } from '@/lib/phone'
 import CallsClient, { type ResolvedEntry } from './CallsClient'
 
 export const dynamic = 'force-dynamic'
@@ -66,13 +67,15 @@ export default async function CallsPage({
   }
 
   const { data, count } = await query
-  const calls = data ?? []
+  // 過去取込分の caller_name には PBX の表示プレフィックス（例「水炊き大和|090xxx」）が
+  // 残っているため表示前にクリーニング（新規取込は cdr-transform 側で適用済み）
+  const calls = (data ?? []).map(c => ({ ...c, caller_name: cleanCnam(c.caller_name) }))
 
   // 相手名の突合（着信=caller / 発信=destination）: 表示ページ分のみ一括解決
   const counterparts = calls.map(c => (dir === 'out' ? c.destination : c.caller)).filter(Boolean) as string[]
   const nameMap = await resolveCallerNames(counterparts)
   const names: ResolvedEntry[] = [...nameMap.entries()].map(([caller, r]) => ({
-    caller, name: r.name, source: r.source, entryId: r.entryId, note: r.note ?? null, blocked: r.blocked ?? false,
+    caller, name: r.name, source: r.source, entryId: r.entryId, note: r.note ?? null, blocked: r.blocked ?? false, group: r.group ?? null,
     partnerNo: r.partnerNo, partnerName: r.partnerName,
   }))
 

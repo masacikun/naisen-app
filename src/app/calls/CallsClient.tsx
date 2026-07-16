@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useTransition } from 'react'
 import { BRANDS } from '@/lib/brands'
 import type { CallsFilters } from './page'
 
@@ -19,6 +19,7 @@ export type ResolvedEntry = {
   entryId?: number
   note: string | null
   blocked?: boolean
+  group?: string | null
   partnerNo?: number
   partnerName?: string
 }
@@ -95,15 +96,18 @@ export default function CallsClient({
 
   // ── 相手名（電話帳/master 突合結果）と電話帳インライン登録 ──
   const [nameMap, setNameMap] = useState<Map<string, Omit<ResolvedEntry, 'caller'>>>(
-    () => new Map(names.map(n => [n.caller, { name: n.name, source: n.source, entryId: n.entryId, note: n.note, blocked: n.blocked, partnerNo: n.partnerNo, partnerName: n.partnerName }]))
+    () => new Map(names.map(n => [n.caller, { name: n.name, source: n.source, entryId: n.entryId, note: n.note, blocked: n.blocked, group: n.group, partnerNo: n.partnerNo, partnerName: n.partnerName }]))
   )
   const [editingId,   setEditingId]   = useState<number | null>(null)
   const [editCaller,  setEditCaller]  = useState('')
   const [editName,    setEditName]    = useState('')
   const [editNote,    setEditNote]    = useState('')
   const [editPartner, setEditPartner] = useState('')
+  const [editGroup,   setEditGroup]   = useState('')
+  const [editBlocked, setEditBlocked] = useState(false)
   const [saving,      setSaving]      = useState(false)
   const [editError,   setEditError]   = useState('')
+  const [isRefreshing, startRefresh]  = useTransition()
 
   // ── URL builder ──
   function buildUrl(ov: {
@@ -205,6 +209,8 @@ export default function CallsClient({
     setEditName(ex?.name ?? '')
     setEditNote(ex?.note ?? '')
     setEditPartner(ex?.partnerNo != null ? String(ex.partnerNo) : '')
+    setEditGroup(ex?.source === '電話帳' ? (ex.group ?? '') : '')
+    setEditBlocked(ex?.blocked ?? false)
     setEditCaller(caller)
     setEditingId(id)
     setEditError('')
@@ -226,9 +232,11 @@ export default function CallsClient({
           const partnerId = editPartner
             ? parseInt(editPartner)
             : (ex?.source === '取引先' && ex.partnerNo != null ? ex.partnerNo : null)
-          return isPhonebook
-            ? { name: editName.trim(), memo: editNote.trim() || null, partner_id: partnerId }
-            : { name: editName.trim(), memo: editNote.trim() || null, numbers: [editCaller], partner_id: partnerId }
+          const common = {
+            name: editName.trim(), memo: editNote.trim() || null, partner_id: partnerId,
+            group_name: editGroup.trim() || null, blocked: editBlocked,
+          }
+          return isPhonebook ? common : { ...common, numbers: [editCaller] }
         })()),
       })
       if (!res.ok) {
@@ -238,7 +246,8 @@ export default function CallsClient({
       const saved = await res.json()
       const linkedNo = editPartner ? parseInt(editPartner) : (ex?.source === '取引先' ? ex.partnerNo : ex?.partnerNo)
       setNameMap(prev => new Map(prev).set(editCaller, {
-        name: editName.trim(), source: '電話帳', entryId: saved.id, note: editNote.trim() || null, blocked: saved.blocked ?? false,
+        name: editName.trim(), source: '電話帳', entryId: saved.id, note: editNote.trim() || null,
+        blocked: saved.blocked ?? editBlocked, group: editGroup.trim() || null,
         partnerNo: linkedNo,
         partnerName: linkedNo != null ? partners.find(pp => pp.partner_no === linkedNo)?.partner_name : undefined,
       }))
@@ -273,6 +282,11 @@ export default function CallsClient({
         <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200">通話履歴</h1>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500 dark:text-gray-400">{total.toLocaleString()} 件</span>
+          <button onClick={() => startRefresh(() => router.refresh())} disabled={isRefreshing}
+            title="最新の通話を取得"
+            className="px-3 py-1.5 rounded bg-indigo-600 text-white text-sm hover:bg-indigo-700 font-medium disabled:opacity-50">
+            {isRefreshing ? '更新中…' : '🔄 更新'}
+          </button>
           <button onClick={exportCsv}
             className="px-3 py-1.5 rounded bg-emerald-600 text-white text-sm hover:bg-emerald-700 font-medium">
             CSV出力
@@ -307,7 +321,7 @@ export default function CallsClient({
             検索
           </button>
           <button onClick={reset}
-            className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-800">
+            className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700">
             リセット
           </button>
         </div>
@@ -392,6 +406,7 @@ export default function CallsClient({
             <tr className="text-xs text-gray-500 dark:text-gray-400 border-b bg-gray-50 dark:bg-gray-800">
               <th className="text-left px-4 py-2">日時</th>
               <th className="text-left px-4 py-2">{dir === 'out' ? '発信先' : '発信元'}</th>
+              <th className="text-left px-4 py-2">電話帳</th>
               <th className="text-left px-4 py-2">{dir === 'out' ? '発信内線' : '回線'}</th>
               <th className="text-left px-4 py-2">IVR</th>
               <th className="text-center px-4 py-2">通話時間</th>
@@ -401,7 +416,7 @@ export default function CallsClient({
           <tbody>
             {calls.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-16 text-gray-400 dark:text-gray-500 text-sm">
+                <td colSpan={7} className="text-center py-16 text-gray-400 dark:text-gray-500 text-sm">
                   該当する通話がありません
                 </td>
               </tr>
@@ -410,13 +425,30 @@ export default function CallsClient({
               const info      = other ? nameMap.get(other) : undefined
               const isEditing = editingId === c.id
               return (
-                <tr key={c.id} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-800">
+                <tr key={c.id} className="border-b dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/60">
                   <td className="px-4 py-2 text-gray-600 dark:text-gray-300 whitespace-nowrap">{fmtDate(c.started_at)}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">
+                    <div className="flex items-center gap-1 group">
+                      <button onClick={() => clickCaller(other)}
+                        className="font-mono text-xs text-indigo-600 dark:text-indigo-400 hover:underline" title="この番号で絞り込み">
+                        {other || '—'}
+                      </button>
+                      {isSearchableNumber(other) && (
+                        <a href={NUMBER_SEARCH_SITES[0].url(other)} target="_blank" rel="noopener noreferrer"
+                          className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-xs transition-opacity"
+                          title="この番号をネットで検索">
+                          🔍
+                        </a>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-2">
                     {isEditing ? (
-                      <div className="flex flex-col gap-1 min-w-52">
+                      <div className="flex flex-col gap-1 min-w-56">
                         <input autoFocus value={editName} onChange={e => setEditName(e.target.value)}
                           placeholder="名前" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
+                        <input value={editGroup} onChange={e => setEditGroup(e.target.value)}
+                          placeholder="グループ（任意）" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
                         <input value={editNote} onChange={e => setEditNote(e.target.value)}
                           placeholder="メモ（任意）" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
                         <select value={editPartner}
@@ -431,6 +463,10 @@ export default function CallsClient({
                             <option key={pp.partner_no} value={pp.partner_no}>{pp.partner_name}</option>
                           ))}
                         </select>
+                        <label className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 cursor-pointer">
+                          <input type="checkbox" checked={editBlocked} onChange={e => setEditBlocked(e.target.checked)} className="rounded" />
+                          着信拒否（電話機に着信させない）
+                        </label>
                         {nameMap.get(editCaller)?.source === '取引先' && (
                           <div className="text-[11px] text-emerald-600 dark:text-emerald-400">
                             保存時に取引先「{nameMap.get(editCaller)?.name}」とリンクします
@@ -446,7 +482,7 @@ export default function CallsClient({
                           </div>
                         )}
                         {editError && <div className="text-xs text-red-600">{editError}</div>}
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 items-center">
                           <button onClick={saveEntry} disabled={saving || !editName.trim()}
                             className="px-2 py-0.5 rounded bg-indigo-600 text-white text-xs disabled:opacity-40">
                             {saving ? '…' : '電話帳に保存'}
@@ -457,54 +493,49 @@ export default function CallsClient({
                           )}
                           <button onClick={() => setEditingId(null)}
                             className="px-2 py-0.5 rounded border text-xs text-gray-500 dark:text-gray-400">✕</button>
+                          <Link href={`/phonebook?q=${encodeURIComponent(editCaller)}`} target="_blank"
+                            className="ml-auto text-[11px] text-indigo-500 hover:underline whitespace-nowrap" title="電話帳で詳細編集（新しいタブ）">
+                            電話帳で詳細 ↗
+                          </Link>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-start gap-1 group">
-                        <div>
-                          {(info?.name || (dir === 'in' && c.caller_name)) && (
-                            <div className="text-gray-700 dark:text-gray-300 font-medium text-xs mb-0.5">
-                              {info?.source === '電話帳' ? (
-                                <Link href={`/phonebook?q=${encodeURIComponent(c.caller)}`}
-                                  className="hover:underline text-indigo-700 dark:text-indigo-300" title="電話帳で開く">
-                                  {info.name}
-                                </Link>
-                              ) : (info?.name || (dir === 'out' ? '' : c.caller_name))}
-                              {info?.partnerName && (
-                                <span className="ml-1 text-[10px] text-gray-400 dark:text-gray-500 font-normal">（取引先: {info.partnerName}）</span>
-                              )}
-                              {info && (
-                                <span className={`ml-1 px-1 py-px rounded text-[10px] font-normal ${SOURCE_STYLE[info.source] ?? ''}`}>
-                                  {info.source}
-                                </span>
-                              )}
-                              {info?.blocked && (
-                                <span className="ml-1 px-1 py-px rounded text-[10px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
-                                  着信拒否
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          <button onClick={() => clickCaller(other)}
-                            className="font-mono text-xs text-indigo-600 dark:text-indigo-400 hover:underline" title="この番号で絞り込み">
-                            {other || '—'}
-                          </button>
-                          {info?.note && (
-                            <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{info.note}</div>
-                          )}
-                        </div>
-                        {!info && isSearchableNumber(other) && (
-                          <a href={NUMBER_SEARCH_SITES[0].url(other)} target="_blank" rel="noopener noreferrer"
-                            className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 text-xs mt-0.5 transition-opacity"
-                            title="この番号をネットで検索">
-                            🔍
-                          </a>
+                      <div className="flex items-center gap-1.5 group">
+                        {info ? (
+                          <>
+                            {info.source === '電話帳' ? (
+                              <Link href={`/phonebook?q=${encodeURIComponent(other)}`} target="_blank"
+                                className="hover:underline text-indigo-700 dark:text-indigo-300 font-medium text-xs whitespace-nowrap"
+                                title="電話帳で開く（新しいタブ）">
+                                {info.name}
+                              </Link>
+                            ) : (
+                              <span className="text-gray-700 dark:text-gray-300 font-medium text-xs whitespace-nowrap">{info.name}</span>
+                            )}
+                            <span className={`px-1 py-px rounded text-[10px] ${SOURCE_STYLE[info.source] ?? ''}`}>{info.source}</span>
+                            {info.group && (
+                              <span className="px-1 py-px rounded text-[10px] bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 whitespace-nowrap">{info.group}</span>
+                            )}
+                            {info.blocked && (
+                              <span className="px-1 py-px rounded text-[10px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">着信拒否</span>
+                            )}
+                            {info.partnerName && (
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">（取引先: {info.partnerName}）</span>
+                            )}
+                            {info.note && (
+                              <span className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-40" title={info.note}>{info.note}</span>
+                            )}
+                          </>
+                        ) : (dir === 'in' && c.caller_name) ? (
+                          <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap" title="PBXが受け取った発信者名">{c.caller_name}</span>
+                        ) : (
+                          <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
                         )}
                         {other && isAdmin && (
                           <button onClick={() => openEdit(c.id, other)}
-                            className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-300 text-xs mt-0.5 transition-opacity"
-                            title="電話帳に登録">
-                            ✏️
+                            className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-xs transition-opacity shrink-0"
+                            title={info?.source === '電話帳' ? '電話帳を編集（名称・グループ・着信拒否）' : '電話帳に登録'}>
+                            {info?.source === '電話帳' ? '✏️ 編集' : '＋ 登録'}
                           </button>
                         )}
                       </div>

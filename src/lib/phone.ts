@@ -63,3 +63,21 @@ export function isExtension(raw: string): boolean {
 export function isCanonicalJp(normalized: string): boolean {
   return /^0[0-9]{9,10}$/.test(normalized)
 }
+
+/**
+ * CDR の CNAM から PBX の電話機表示プレフィックス（例「他|水炊き大和|090xxx」「水炊き大和|090xxx」）
+ * を取り除き、実際の発信者名だけを返す。
+ * - 「|」区切りの最終セグメントが発信者番号と同じ数字列 → 名前情報なし（null）
+ * - プレフィックス除去後に実名が残ればそれを返す（「|」なしの CNAM はそのまま）
+ * - CNAM が番号そのもの（数字一致）の場合も null（番号の二重表示を防ぐ）
+ */
+export function cleanCnam(cnam: string | null | undefined): string | null {
+  if (!cnam) return null
+  const segs = cnam.split('|').map(s => s.trim()).filter(s => s.length > 0)
+  if (segs.length === 0) return null
+  const last = segs[segs.length - 1]
+  // 最終セグメントが番号（数字・電話記号のみ）→ プレフィックス＋番号だけで実名なし
+  if (/^[0-9+()\-\s]+$/.test(last.normalize('NFKC'))) return null
+  // プレフィックス付きなら最終セグメント（実名）だけ、「|」なしの CNAM はそのまま
+  return segs.length > 1 ? last : (cnam.trim() || null)
+}

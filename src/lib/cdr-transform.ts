@@ -7,6 +7,8 @@
 // - duration_sec = 応答レグの billsec 最大
 // - 81形式アダプタ: 先頭81かつ12桁以上 → 0 付替え（phone.ts は不変更。
 //   出力は数字のみ＝正規化済み形式と同一で、表示側の normalizePhone 突合とそのまま一致する）
+import { cleanCnam } from './phone'
+
 export interface CdrLeg {
   calldate: string          // 'YYYY-MM-DD HH:MM:SS'（サーバJST）
   src: string
@@ -196,7 +198,7 @@ export function aggregateCdr(legs: CdrLeg[]): NaisenCallRecord[] {
       ended_at: addSec(lastCalldate.calldate, lastCalldate.duration),
       duration_sec: durationSec,
       caller,
-      caller_name: rep.cnam?.trim() || null,
+      caller_name: cleanCnam(rep.cnam),
       destination,
       destination_name: null,
       line_number: lineNumber || null,

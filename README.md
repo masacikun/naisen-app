@@ -96,6 +96,8 @@ FreePBX（TelPro 162.43.89.64）が pull する一方向フィード。契約は
 - **管理API**: `/n/api/phonebook/categories`・`books`（GET/POST/DELETE）・`identity-books`（GET/PUT/DELETE）。変更は admin のみ（fail-closed）
 - **ブラックリスト相互移動（2026-07-16）**: 一覧ビューは 連絡先（blocked=false のみ）/ ブラックリスト（blocked=true のみ）/ すべて。操作列の「BLへ」「解除」で行単位の相互移動（blocked のみ送信＝区分・掲載・番号は現状維持。純関数 `src/lib/phonebook-view.ts`）。旧「拒否」グループ276件は 2026-07-16 に blocked=true へ統一（うち1件 #229 が未ブロックだった不整合を解消・配信 680→679件）
 - **nginx**: `location = /n/api/phonebook/acrobits` バイパス **2026-07-16 適用済み（まさし承認）**。公開URL実測=認証なし401 / user=8000 で680件（拒否BL化後679件）/ 304
+- **一括更新（2026-07-17）**: 旧「その他_SmileEstate」29件を物理削除（numbers/entry_books は FK cascade）。管理会社_SmileEstate 448＋ホテル 15＝463件を電話帳「SmileEstate」（book_mrnjlno5・UI作成）に掲載し「共通(all)」から除去 → all 配信は184件・SmileEstate 購読は463件（実測）。事前バックアップ /var/backups/bantosan/phonebook_pre_bulk_20260717.sql
+- **ふりがな verified の UI 撤去（2026-07-17）**: 一覧の「未確認」バッジ・「未確認のみ」フィルタ・フォームの「確認済」チェックを削除（furigana_verified 列とデータ・自動入力 /api/furigana は温存＝UI表出のみ撤去）
 - **残作業**: Groundwire プロビジョニングXML 配布／人事（employees）との active 自動連動（内線⇔社員の紐付けキー決定待ち）
 - pm2 は kuromoji 辞書分を見込み `--max-memory-restart 512M`（deploy.yml）
 

@@ -78,7 +78,7 @@ Grandstream 電話機（DP750/WP810）が定期ダウンロードする AddressB
 - 表示名→`<FirstName>`（XML特殊文字 `& < > " '` はエスケープ）・`<LastName>` は空・`<accountindex>0</accountindex>`
 - 認証: HTTP Basic（`.env.local` の `PHONEBOOK_USER` / `PHONEBOOK_PASS`・timingSafeEqual・両方未設定時のみ素通し＝片方設定なら fail-closed）。401 時は `WWW-Authenticate: Basic realm="phonebook"`
 - 実装: `src/lib/grandstream-phonebook.ts`（XML整形＋Basic照合・純関数）＋ `src/app/api/phonebook/grandstream/route.ts`
-- 公開経路: nginx に `location = /n/api/phonebook/grandstream` の auth_request バイパス（X-Auth-* 空化・IP制限なし＝Basic認証が門）を追加して電話機から到達可能にする（設定はサーバー側・このリポ外。**2026-07-15 時点で未適用＝まさし承認待ち**）
+- 公開経路: nginx に `location = /n/api/phonebook/grandstream` の auth_request バイパス（X-Auth-* 空化・IP制限なし＝Basic認証が門）を追加済み（設定はサーバー側・このリポ外。**2026-07-16 適用済み・まさし承認**。公開URL実測: 認証なし401 / 正認証200・679件 / 誤認証401）。残りは GDMS テンプレ（DP750/WP810）への URL＋Basic 認証設定と 1Password への資格情報保存（まさし対応）
 
 ---
 

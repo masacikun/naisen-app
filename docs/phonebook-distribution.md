@@ -136,3 +136,30 @@ wsContactsRefreshInterval  = 300
 2. iPhone「連絡先」アプリに会社データが**書かれていない**（本体が汚れない・重複しない）。
 3. ふりがな順（あいうえお）で並ぶ（`fnamePhonetic`）。
 4. Groundwire 上で1件消しても次の同期で復活（サーバー正）。
+
+---
+
+## 改訂（2026-07-17・その2）: リンク方式NG（実機）→ タップ式ランディングへ
+
+**実機結果**: 配布ページの `https://…` と `provlinkbs://…` を Safari/Chrome の**アドレスバー/302リダイレクト/QR→アドレス**で開くと「アドレスは無効です」。カメラ QR も無反応。
+
+**原因**: iOS は**カスタムスキームを「リンクとしてタップ」した時のみ**起動する（アドレスバー入力・リダイレクトでは発火しない）。前実装の 302 誘導が誤り。スキーム `provlinkbs://` 自体は正しい（Acrobits 公式例 `provlinkbs://tester:testing@dist.acrobits.net/test/ppprovlink.xml`）。
+
+**対応（実装）**: エンドポイントのブラウザ経路を **302 → タップ可能ボタンの HTML ランディング**に変更。
+- `GET …/groundwire?token=…`（ブラウザ）→「Groundwire で開く」ボタン `<a href="provlinkbs://…?token=…&fmt=xml">` を含む HTML を返す。
+- ボタン tap → `provlinkbs://` 発火 → Groundwire が `https://…?token=…&fmt=xml` を取得。
+- `fmt=xml` は UA 非依存で XML を返すトリガ（Groundwire の fetch UA 不確実性を排除）。アプリ UA でも XML。
+
+**retail Groundwire iOS の正規経路（調査結論）**:
+- アプリ内に**任意 XML の URL インポート欄は無い**。`Restore configuration`（Keypad → 設定 → Preferences → Restore configuration）は **Groundwire 自身が作る暗号化バックアップ（パスワード付）専用**で、任意プロビジョニング XML の取込には使えない。
+- wsContacts は公式に「Cloud Softphone ポータル or Acrobits SDK の prefKey 直接」＝ **retail に wsContacts 手入力 GUI は無い**。手入力フォールバックは不可。
+- よって retail の唯一の経路は **provlinkbs リンクを「タップ」で発火**させるプロビジョニング。
+
+**まさし1台テスト手順（改訂・これが最新）**:
+1. 配布ページ（QR / https リンク）を対象 iPhone の Safari で開く →「**Groundwire で開く**」ボタンを**タップ**。
+2. 「"Groundwire" で開きますか?」→ **開く** → プロビジョニング適用を承認（マージ＝既存アカウント温存）。
+3. Groundwire → 連絡先 → ソースに「Web（会社電話帳）」。初回同期で約 184 件。
+4. **開かない場合**: ページ内の `provlinkbs://…` リンクを長押しコピー → Apple「メモ」に貼付（リンク化される）→ **メモ上でタップ**。
+   - それでも不可なら、この retail 版が `provlinkbs` スキーム未登録の可能性 → 要報告（次善策: CardDAV 連絡先ソース〔Groundwire GUI で手入力可〕をサーバーに追加する案。ただし wsContacts とは別実装）。
+
+**旧「iOS 読み込み手順」節（302 前提）は本改訂で置換**。サーバーの配布 XML（mergeable・wsContacts）は不変。

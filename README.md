@@ -90,7 +90,9 @@ FreePBX（TelPro 162.43.89.64）が pull する一方向フィード。契約は
 - **ふりがな**: `GET /n/api/furigana?name=◯◯` →ひらがな（kuroshiro+kuromoji・辞書はシングルトン初回読込・カタカナは kataToHira で後段変換）。一括バックフィル `scripts/backfill-furigana.mjs`（2026-07-16 実行済み・958件生成・既存1件温存・verified=false）。フォームは名前 blur/paste で自動入力→人が「確認済」チェック
 - **UI**: /n/phonebook「連絡先」（区分フィルタ・在職者のみ・ふりがな未確認のみ・掲載電話帳チップ・区分/電話帳管理パネル〔削除は確認付き・区分削除→未分類/電話帳削除→掲載と割当から自動除去・all は削除不可〕）＋ /n/phonebook/devices「端末電話帳」（内線ごとに配る電話帳を on/off・未設定=共通）
 - **管理API**: `/n/api/phonebook/categories`・`books`（GET/POST/DELETE）・`identity-books`（GET/PUT/DELETE）。変更は admin のみ（fail-closed）
-- **残作業**: nginx `location = /n/api/phonebook/acrobits` の auth_request バイパス（**まさし承認待ち**・docs/phonebook-distribution.md に設定案）／Groundwire プロビジョニングXML 配布／人事（employees）との active 自動連動（内線⇔社員の紐付けキー決定待ち）
+- **ブラックリスト相互移動（2026-07-16）**: 一覧ビューは 連絡先（blocked=false のみ）/ ブラックリスト（blocked=true のみ）/ すべて。操作列の「BLへ」「解除」で行単位の相互移動（blocked のみ送信＝区分・掲載・番号は現状維持。純関数 `src/lib/phonebook-view.ts`）。旧「拒否」グループ276件は 2026-07-16 に blocked=true へ統一（うち1件 #229 が未ブロックだった不整合を解消・配信 680→679件）
+- **nginx**: `location = /n/api/phonebook/acrobits` バイパス **2026-07-16 適用済み（まさし承認）**。公開URL実測=認証なし401 / user=8000 で680件（拒否BL化後679件）/ 304
+- **残作業**: Groundwire プロビジョニングXML 配布／人事（employees）との active 自動連動（内線⇔社員の紐付けキー決定待ち）
 - pm2 は kuromoji 辞書分を見込み `--max-memory-restart 512M`（deploy.yml）
 
 ---

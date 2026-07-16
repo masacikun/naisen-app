@@ -77,11 +77,29 @@ FreePBX（TelPro 162.43.89.64）が pull する一方向フィード。契約は
 
 ---
 
-## Grandstream XML 電話帳配信（2026-07-15）
+## 電話帳配信システム（2026-07-16・区分/電話帳マスタ/端末別配信/ふりがな）
+
+番頭さんをマスタに、DP750（Grandstream XML）と Acrobits Groundwire（JSON）へ端末別の連絡先リストを配信する。設計詳細は **docs/phonebook-distribution.md** を参照。
+
+- **スキーマ**: phonebook_categories（区分・可変・未分類 is_system は削除不可・削除→FK on delete set default で未分類へ）/ phonebook_books（配信の束・seed: 本社/店舗/共通）/ phonebook_entry_books（掲載・多対多・0件=非掲載）/ phonebook_identity_books（内線→購読・0件=all フォールバック）/ phonebook_feed_state（Last-Modified 単一ソース・関連6テーブルの statement トリガで更新）。entries に furigana / furigana_verified / category_key / active（退職=false・暫定手動）、numbers に kind（extension/internal/external）
+- **配信API（Basic 認証共通・If-Modified-Since→304 対応）**:
+  - `GET /n/api/phonebook/acrobits?user=<内線>` … Groundwire Web Service Contacts JSON（contactId=entry PK・fnamePhonetic=ふりがな・checksum=updated_at）
+  - `GET /n/api/phonebook/grandstream?user=<内線>` … AddressBook XML（?user= 無しは従来どおり全件＝既存 GDMS 設定互換）
+  - 絞り込み共通: `?groups=`（旧形式・group_name・テスト用オーバーライド・groups 優先）/ 退職・blocked 除外 / 番号はダイヤル可能形（先頭0国内表記・内線は数字そのまま）
+  - 実装: `src/lib/phonebook-feed.ts`（純関数）＋ `phonebook-feed-server.ts`（DB）＋ `display-name.ts`（内線)/社内) プレフィックス・/lookup と共用予定）
+- **ふりがな**: `GET /n/api/furigana?name=◯◯` →ひらがな（kuroshiro+kuromoji・辞書はシングルトン初回読込・カタカナは kataToHira で後段変換）。一括バックフィル `scripts/backfill-furigana.mjs`（2026-07-16 実行済み・958件生成・既存1件温存・verified=false）。フォームは名前 blur/paste で自動入力→人が「確認済」チェック
+- **UI**: /n/phonebook「連絡先」（区分フィルタ・在職者のみ・ふりがな未確認のみ・掲載電話帳チップ・区分/電話帳管理パネル〔削除は確認付き・区分削除→未分類/電話帳削除→掲載と割当から自動除去・all は削除不可〕）＋ /n/phonebook/devices「端末電話帳」（内線ごとに配る電話帳を on/off・未設定=共通）
+- **管理API**: `/n/api/phonebook/categories`・`books`（GET/POST/DELETE）・`identity-books`（GET/PUT/DELETE）。変更は admin のみ（fail-closed）
+- **残作業**: nginx `location = /n/api/phonebook/acrobits` の auth_request バイパス（**まさし承認待ち**・docs/phonebook-distribution.md に設定案）／Groundwire プロビジョニングXML 配布／人事（employees）との active 自動連動（内線⇔社員の紐付けキー決定待ち）
+- pm2 は kuromoji 辞書分を見込み `--max-memory-restart 512M`（deploy.yml）
+
+---
+
+## Grandstream XML 電話帳配信（2026-07-15・07-16に ?user=/304 拡張）
 
 Grandstream 電話機（DP750/WP810）が定期ダウンロードする AddressBook XML を配信する。
 
-- `GET /n/api/phonebook/grandstream` → `Content-Type: text/xml; charset=utf-8`・`Cache-Control: no-store`
+- `GET /n/api/phonebook/grandstream` → `Content-Type: text/xml; charset=utf-8`・`Cache-Control: no-cache`（Last-Modified/304 対応）
 - データ源: `phonebook_entries`（blocked=false・limit 5000）＋ `phonebook_numbers`。番号は `phone_normalized`（数字のみ・0始まり）を出力し、null（内線・数字なし）は除外。番号0件の連絡先は出力しない。複数番号は同一 `<Contact>` 内に `<Phone type="Work">` を複数並べる
 - 表示名→`<FirstName>`（XML特殊文字 `& < > " '` はエスケープ）・`<LastName>` は空・`<accountindex>0</accountindex>`
 - 認証: HTTP Basic（`.env.local` の `PHONEBOOK_USER` / `PHONEBOOK_PASS`・timingSafeEqual・両方未設定時のみ素通し＝片方設定なら fail-closed）。401 時は `WWW-Authenticate: Basic realm="phonebook"`

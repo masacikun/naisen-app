@@ -46,11 +46,14 @@ describe('buildGrandstreamXml', () => {
     expect(xml).toContain('<phonenumber>8001</phonenumber>')
   })
 
-  it('kind=extension は FirstName に 内線)プレフィックス', () => {
-    const e = entry(1, '本社', ['8001'])
+  it('kind=extension は FirstName に 内線)プレフィックス（拠点内線は略称・2026-07-18）', () => {
+    const e = entry(1, '本社', ['8000'])
     e.numbers[0].kind = 'extension'
     const xml = buildGrandstreamXml([e])
     expect(xml).toContain('<FirstName>内線)本社</FirstName>')
+    const nakasu = entry(2, '博多水炊き大和', ['8001'])
+    nakasu.numbers[0].kind = 'extension'
+    expect(buildGrandstreamXml([nakasu])).toContain('<FirstName>内線)中洲</FirstName>')
   })
 
   it('番号0件の連絡先は出力しない', () => {

@@ -100,6 +100,7 @@ FreePBX（TelPro 162.43.89.64）が pull する一方向フィード。契約は
   - `GET /n/api/phonebook/grandstream?user=<内線>` … AddressBook XML（?user= 無しは従来どおり全件＝既存 GDMS 設定互換）
   - 絞り込み共通: `?groups=`（旧形式・group_name・テスト用オーバーライド・groups 優先）/ 退職・blocked 除外 / 番号はダイヤル可能形（先頭0国内表記・内線は数字そのまま）
   - 実装: `src/lib/phonebook-feed.ts`（純関数）＋ `phonebook-feed-server.ts`（DB）＋ `display-name.ts`（内線)/外線)/携帯)/AP) プレフィックス。配信 displayName/vCard FN（エントリ内番号の優先 kind extension>company_050>mobile>ap で付与）と /api/sync/lookup で共用 2026-07-18）
+- **拠点内線の略称表示（2026-07-18）**: 拠点（共有）内線の配信 displayName はエントリ名でなく「内線)<拠点略称>」（8000=内線)本社・8001=内線)中洲・8003=内線)CK・8900=内線)本社FAX。未登録の 8002/8004・個人内線は従来どおり 内線)<名前>）。実装 `display-name.ts` の `siteExtensionLabel`＋`feedDisplayName`（Groundwire JSON／Grandstream XML／CardDAV FN の3経路はこの1点を共用）。FreePBX/SIP 設定・外線 cidlookup は無変更
 - **ふりがな**: `GET /n/api/furigana?name=◯◯` →ひらがな（kuroshiro+kuromoji・辞書はシングルトン初回読込・カタカナは kataToHira で後段変換）。一括バックフィル `scripts/backfill-furigana.mjs`（2026-07-16 実行済み・958件生成・既存1件温存・verified=false）。フォームは名前 blur/paste で自動入力→人が「確認済」チェック
 - **UI**: /n/phonebook「連絡先」（区分フィルタ・在職者のみ・ふりがな未確認のみ・掲載電話帳チップ・区分/電話帳管理パネル〔削除は確認付き・区分削除→未分類/電話帳削除→掲載と割当から自動除去・all は削除不可〕）＋ /n/phonebook/devices「端末電話帳」（内線ごとに配る電話帳を on/off・未設定=共通）
 - **管理API**: `/n/api/phonebook/categories`・`books`（GET/POST/DELETE）・`identity-books`（GET/PUT/DELETE）。変更は admin のみ（fail-closed）

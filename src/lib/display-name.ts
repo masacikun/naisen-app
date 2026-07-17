@@ -35,3 +35,18 @@ export function entryDisplayKind(kinds: NumberKind[]): NumberKind {
   for (const k of ENTRY_KIND_PRIORITY) if (kinds.includes(k)) return k
   return 'external'
 }
+
+// 拠点内線（共有内線）の配信表示名は、エントリ名ではなく拠点略称で「内線)<略称>」にする（まさし指定 2026-07-18）。
+// 外線側の店舗名 prepend（FreePBX RG ラベル・cidlookup の着信名）とは独立した配信専用マップ。
+// 未登録の内線（個人 7000 台・8002/8004 など）は従来どおり 内線)<エントリ名> のまま。
+const SITE_EXTENSION_LABELS: Record<string, string> = {
+  '8000': '本社',
+  '8001': '中洲',
+  '8003': 'CK',
+  '8900': '本社FAX',
+}
+
+/** 拠点内線番号 → 拠点略称（未登録は null） */
+export function siteExtensionLabel(extension: string): string | null {
+  return SITE_EXTENSION_LABELS[extension] ?? null
+}

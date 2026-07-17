@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { displayNameWithPrefix, toNumberKind, entryDisplayKind } from './display-name'
+import { displayNameWithPrefix, toNumberKind, entryDisplayKind, siteExtensionLabel } from './display-name'
 
 describe('displayNameWithPrefix', () => {
   it('extension → 内線)プレフィックス', () => {
@@ -49,5 +49,20 @@ describe('entryDisplayKind（配信displayNameの代表kind）', () => {
   it('external のみ・空は external', () => {
     expect(entryDisplayKind(['external'])).toBe('external')
     expect(entryDisplayKind([])).toBe('external')
+  })
+})
+
+describe('siteExtensionLabel（拠点内線の略称）', () => {
+  it('登録済み拠点内線は略称を返す', () => {
+    expect(siteExtensionLabel('8000')).toBe('本社')
+    expect(siteExtensionLabel('8001')).toBe('中洲')
+    expect(siteExtensionLabel('8003')).toBe('CK')
+    expect(siteExtensionLabel('8900')).toBe('本社FAX')
+  })
+  it('未登録（個人内線・8002/8004・外線番号）は null', () => {
+    expect(siteExtensionLabel('7000')).toBeNull()
+    expect(siteExtensionLabel('8002')).toBeNull()
+    expect(siteExtensionLabel('8004')).toBeNull()
+    expect(siteExtensionLabel('05053711023')).toBeNull()
   })
 })

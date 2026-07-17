@@ -108,6 +108,32 @@ describe('feedDisplayName（配信displayNameのkindプレフィックス）', (
   })
 })
 
+describe('feedDisplayName（拠点内線は 内線)拠点略称・2026-07-18）', () => {
+  const site = (name: string, ext: string) =>
+    toFeedEntries([row(1, name, { phonebook_numbers: [num(ext, null, 'extension')] })])[0]
+  it('拠点内線はエントリ名でなく略称で表示', () => {
+    expect(feedDisplayName(site('本社', '8000'))).toBe('内線)本社')
+    expect(feedDisplayName(site('博多水炊き大和', '8001'))).toBe('内線)中洲')
+    expect(feedDisplayName(site('セントラルキッチン', '8003'))).toBe('内線)CK')
+    expect(feedDisplayName(site('本社FAX', '8900'))).toBe('内線)本社FAX')
+  })
+  it('未登録の拠点内線（8002/8004）はエントリ名のまま', () => {
+    expect(feedDisplayName(site('西新餃子スタンド大和', '8002'))).toBe('内線)西新餃子スタンド大和')
+    expect(feedDisplayName(site('イベント運営ユニット', '8004'))).toBe('内線)イベント運営ユニット')
+  })
+  it('個人内線はエントリ名のまま（略称化しない）', () => {
+    expect(feedDisplayName(site('中村 まさし', '7000'))).toBe('内線)中村 まさし')
+  })
+  it('拠点内線＋外線の混在エントリも extension 優先で略称化', () => {
+    const out = toFeedEntries([
+      row(1, '博多水炊き大和', {
+        phonebook_numbers: [num('8001', null, 'extension'), num('05054344451', '05054344451', 'company_050')],
+      }),
+    ])
+    expect(feedDisplayName(out[0])).toBe('内線)中洲')
+  })
+})
+
 describe('buildAcrobitsJson', () => {
   it('company に区分名を載せる（区分なしは空文字）', () => {
     const json = buildAcrobitsJson(

@@ -2,6 +2,21 @@
 
 番頭さん（総合管理システム）の電話履歴管理アプリ。Next.js 16 App Router + PostgREST。
 
+## FAX受信管理（2026-07-18）
+
+FreePBX の FAX 受信 PDF を番頭さん側に取り込み、一覧・仕分け・対応管理する（案A: PDF実体を番頭さん側 DB に base64 保存。二重化期間中は FreePBX 側の Drive 保存も並行）。
+
+- テーブル: `naisen_fax_messages`（PDF は `pdf_data` に base64・冪等キー `pbx_uniqueid` UNIQUE・status/category/memo・`linked_type/linked_id` は将来の実体接続用に温存）
+- 受け口 API: `POST /n/api/fax/inbound`（FreePBX fax-postprocess が叩く。nginx `location = /n/api/fax/inbound` で **TelPro FreePBX の IP のみ allow・auth_request バイパス・client_max_body_size 30m**、アプリ側で **Bearer（`SYNC_FEED_TOKENS` 共用）** 検証の二重防御。JSON 推奨・multipart も可。同一 `uniqueid` の再 POST は 200＋既存 id で冪等）
+- Slack 通知: 登録成功後に `SLACK_FAX_WEBHOOK`（Incoming Webhook・PBX 側 `/etc/telpro-fax.env` と同値）へ「新着FAX＋画面リンク」を送信。通知失敗でも登録は成立（ログのみ）
+- 画面: `/n/fax`（一覧・期間/ステータス/区分絞り込み・**DM(不要) は既定で非表示**・行内でステータス/仕分け変更）＋ `/n/fax/[id]`（単票: PDF プレビュー iframe・ステータス/仕分けボタン・メモ。Slack 通知のリンク先）
+- PDF 配信: `GET /n/api/fax/[id]/pdf`（inline・`?dl=1` で attachment。X-Auth-User 必須＝録音再生と同方針）
+- ステータス: `untriaged`=未仕分け／`open`=未対応／`done`=対応済み／`dm`=DM(不要)。仕分け区分: `invoice`=請求書／`payment`=支払明細／`other`=その他（パターンB: 区分のみで受け、外部には出さない）。仕分けすると untriaged は自動で open へ
+- 編集ロール: admin / shain（camera-app と同方針・`X-Auth-Role` をアプリ側で再チェック）。閲覧は全ログインユーザー
+- 実装: `src/lib/fax.ts`（区分/ステータス定義・ロール判定）・`src/lib/slack.ts`（Webhook 通知）・`src/app/api/fax/*`・`src/app/fax/*`
+
+---
+
 ## 電話帳（Phase 1 / Slice 1・2026-07-13、Slice 2・2026-07-14）
 
 naisen-app をマスタとする電話帳。閲覧は全認証ユーザー・追加/編集/削除は admin のみ（fail-closed）。

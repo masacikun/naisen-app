@@ -17,6 +17,7 @@ export interface CdrLeg {
   channel: string
   dstchannel: string
   lastapp: string
+  lastdata: string
   duration: number
   billsec: number
   disposition: string       // ANSWERED / NO ANSWER / BUSY / FAILED
@@ -88,11 +89,42 @@ export const CDR_LINE_NAMES: Record<string, string> = {
   '0922923010':  '1_gates',
 }
 
-/** 81形式アダプタ: 数字のみ抽出し、先頭81かつ12桁以上なら 0 に付替え */
+/**
+ * 81形式アダプタ: 数字のみ抽出し、+なし国際表記（81+9〜10桁）は 0 に付替え。
+ * 2026-07-18: 0120等のフリーダイヤル（81120…=11桁）が旧条件「12桁以上」から漏れていたため
+ * cid-lookup.ts の normalizeCidNumber と同一の正規表現に統一（2-4）。
+ */
 export function to0Form(raw: string | null | undefined): string {
   const d = (raw ?? '').replace(/[^0-9]/g, '')
-  if (d.startsWith('81') && d.length > 11) return '0' + d.slice(2)
+  if (/^81[1-9][0-9]{8,9}$/.test(d)) return '0' + d.slice(2)
   return d
+}
+
+// ── 2-2 IVR経路の判別マップ（FreePBX 実体照合 2026-07-18・表記はまさし承認） ──
+// ivr_details の名称
+export const IVR_NAMES: Record<string, string> = {
+  'ivr-1': '大和A', 'ivr-2': '大和A不在', 'ivr-3': '大和B', 'ivr-4': '大和C',
+  'ivr-5': '大和D', 'ivr-6': '大和B不在', 'ivr-7': 'SmileFood', 'ivr-8': 'Estate',
+  'ivr-9': 'HYD', 'ivr-10': '西新',
+}
+// リンググループ番号 → 「IVR名→選択肢」表記（ringgroups.description 準拠・受け内線表記(8001)等は除去）
+export const GROUP_ROUTES: Record<string, string> = {
+  '600': '代表受け',
+  '601': '大和A→予約', '602': '大和A→キャンセル', '603': '大和A→その他',
+  '604': '大和B→予約', '605': '大和B→キャンセル', '606': '大和B→変更', '607': '大和B→その他',
+  '608': '大和C→当日変更', '609': '大和C→変更', '610': '大和C→その他',
+  '611': '大和D→当日変更', '612': '大和D→変更', '613': '大和D→その他',
+  '614': 'SmileFood→経理', '615': 'SmileFood→その他',
+  '616': 'Estate→経理', '617': 'Estate→その他',
+  '618': 'HYD→経理', '619': 'HYD→その他',
+  '620': '西新→一次受け', '621': 'GACHA→混雑時', '622': 'GACHA→通常',
+  '630': '直通受け',
+}
+// announcement_id → 案内名（announcement.description 準拠）
+export const ANNOUNCEMENT_LABELS: Record<string, string> = {
+  '1': '不在案内', '2': '不在案内', '3': '不在案内', '4': '留守電',
+  '5': '担当者不在案内', '6': '担当者不在案内', '7': '担当者不在案内',
+  '8': '閉店案内', '9': '混み合い案内', '10': 'コールセンター案内',
 }
 
 /** PJSIP/<内線3-4桁>-xxxx から内線番号を取り出す（トランク PJSIP/Rakuten-* は対象外） */
@@ -144,8 +176,14 @@ export function aggregateCdr(legs: CdrLeg[]): NaisenCallRecord[] {
       l.disposition === 'ANSWERED' &&
       (direction === 'outbound' ? !!l.dstchannel : extFromChannel(l.dstchannel) !== null))
 
+    // 2-2/2-3 終端イベントの検出（後続レグの dcontext / lastapp から）
+    const rejected = group.some(l => l.dcontext === 'app-blackhole')          // ブラックリスト着信（app-blacklist-check→blackhole 終端）
+    const voicemail = group.some(l => l.lastapp === 'VoiceMail')              // 留守電で完了
+
     let status: string
     if (answeredLegs.length > 0) status = 'ANSWERED'
+    else if (rejected) status = 'REJECTED'
+    else if (voicemail) status = 'VOICEMAIL'
     else if (group.some(l => l.disposition === 'BUSY')) status = 'BUSY'
     else if (group.some(l => l.disposition === 'ANSWERED')) status = 'NO ANSWER' // IVR応答のみ
     else if (group.every(l => l.disposition === 'FAILED')) status = 'FAILED'
@@ -158,9 +196,27 @@ export function aggregateCdr(legs: CdrLeg[]): NaisenCallRecord[] {
     const lineNumber = didRaw ? to0Form(didRaw) : ''
     const lineName = lineNumber ? CDR_LINE_NAMES[lineNumber] ?? null : null
 
-    const ivrToken = group
+    // 2-2 IVR経路（人間可読）: 最後に居た IVR ＋ 押下先（グループ/案内/留守電/TableCheck）で判別
+    const ivrCtxs = group
       .map(l => [l.dcontext, l.dst].find(v => /^ivr-\d+$/.test(v ?? '')))
+      .filter((v): v is string => !!v)
+    const ivrName = ivrCtxs.length > 0 ? (IVR_NAMES[ivrCtxs[ivrCtxs.length - 1]] ?? ivrCtxs[ivrCtxs.length - 1]) : null
+    const groupLeg = [...group].reverse()
+      .find(l => l.dcontext === 'ext-group' && GROUP_ROUTES[(l.dst ?? '').replace(/[^0-9]/g, '')])
+    const annId = group
+      .map(l => ((l.dcontext ?? '').match(/^app-announcement-(\d+)$/) ?? [])[1])
       .find(v => v) ?? null
+    const hasMisc = group.some(l => l.dcontext === 'ext-miscdests')
+
+    let ivrRoute: string | null = null
+    if (voicemail) ivrRoute = ivrName ? `${ivrName}→留守電` : '留守電'
+    else if (hasMisc) ivrRoute = ivrName ? `${ivrName}→TableCheck転送` : 'TableCheck転送'
+    else if (groupLeg) ivrRoute = GROUP_ROUTES[(groupLeg.dst ?? '').replace(/[^0-9]/g, '')]
+    else if (annId) {
+      const label = ANNOUNCEMENT_LABELS[annId] ?? `案内${annId}`
+      ivrRoute = ivrName ? `${ivrName}→${label}` : label
+    } else if (rejected) ivrRoute = null
+    else if (ivrName) ivrRoute = `${ivrName}(IVR途中切断)`
 
     const recording = group.map(l => l.recordingfile).find(v => v && v.trim()) ?? null
 
@@ -203,7 +259,7 @@ export function aggregateCdr(legs: CdrLeg[]): NaisenCallRecord[] {
       destination_name: null,
       line_number: lineNumber || null,
       line_name: lineName,
-      ivr_route: ivrToken,
+      ivr_route: ivrRoute,
       answered_ext: answeredExt,
       outbound_line: outboundLine,
       transferred: null,

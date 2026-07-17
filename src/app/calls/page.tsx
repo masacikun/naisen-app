@@ -79,6 +79,25 @@ export default async function CallsPage({
     partnerNo: r.partnerNo, partnerName: r.partnerName,
   }))
 
+  // 2-5: 内線番号→名前（電話帳 kind=extension・在職のみ）。内線同士の「誰から誰へ」表示と発信内線の名前用
+  const { data: extRows } = await supabaseServer
+    .from('phonebook_numbers')
+    .select('phone_raw, phonebook_entries(name, active)')
+    .eq('kind', 'extension')
+  const extNames: Record<string, string> = {}
+  for (const r of (extRows ?? []) as { phone_raw: string; phonebook_entries: { name: string; active: boolean } | { name: string; active: boolean }[] | null }[]) {
+    const e = Array.isArray(r.phonebook_entries) ? r.phonebook_entries[0] : r.phonebook_entries
+    const digits = (r.phone_raw ?? '').replace(/[^0-9]/g, '')
+    if (e && e.active !== false && /^[0-9]{3,4}$/.test(digits)) extNames[digits] = e.name
+  }
+  // 内線発の内線通話は caller が 3〜4 桁＝resolveCallerNames では引けないため電話帳（内線）から補完
+  for (const c of new Set(counterparts)) {
+    const digits = (c ?? '').replace(/[^0-9]/g, '')
+    if (!nameMap.has(c) && extNames[digits]) {
+      names.push({ caller: c, name: extNames[digits], source: '電話帳', note: null, blocked: false, group: null })
+    }
+  }
+
   const isAdmin = (await headers()).get('x-auth-role') === 'admin'
 
   // ✏️の取引先リンク用（38件・軽量）
@@ -98,6 +117,7 @@ export default async function CallsPage({
       partners={partners ?? []}
       isAdmin={isAdmin}
       excludeIntDefault={excludeInt}
+      extNames={extNames}
     />
   )
 }

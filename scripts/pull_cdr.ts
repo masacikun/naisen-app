@@ -87,7 +87,7 @@ async function main() {
       dateStrings: true, connectTimeout: 10000,
     })
     const [rows] = await conn.query(
-      `SELECT calldate, src, dst, dcontext, channel, dstchannel, lastapp,
+      `SELECT calldate, src, dst, dcontext, channel, dstchannel, lastapp, lastdata,
               duration, billsec, disposition, uniqueid, did, recordingfile,
               cnam, outbound_cnum, linkedid, sequence
          FROM cdr

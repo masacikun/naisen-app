@@ -10,6 +10,7 @@ type Call = {
   caller: string; caller_name: string; line_name: string
   status: string; ivr_route: string
   destination: string; outbound_line: string
+  recording_file: string | null
 }
 export type PartnerOpt = { partner_no: number; partner_name: string }
 export type ResolvedEntry = {
@@ -29,9 +30,22 @@ const STATUS_STYLE: Record<string, string> = {
   'NO ANSWER': 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400',
   'BUSY':      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400',
   'FAILED':    'bg-gray-100 dark:bg-gray-800 text-slate-500',
+  'VOICEMAIL': 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+  'REJECTED':  'bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
 }
 const STATUS_LABEL: Record<string, string> = {
   'ANSWERED': '応答', 'NO ANSWER': '不在', 'BUSY': '話中', 'FAILED': 'FAILED',
+  'VOICEMAIL': '留守電', 'REJECTED': '拒否',
+}
+// 旧取込分（48h より前）の ivr_route は 'ivr-N' 形式のまま残るため表示時に名称へ読み替える
+const LEGACY_IVR_NAMES: Record<string, string> = {
+  'ivr-1': '大和A', 'ivr-2': '大和A不在', 'ivr-3': '大和B', 'ivr-4': '大和C',
+  'ivr-5': '大和D', 'ivr-6': '大和B不在', 'ivr-7': 'SmileFood', 'ivr-8': 'Estate',
+  'ivr-9': 'HYD', 'ivr-10': '西新',
+}
+function fmtIvrRoute(v: string | null): string {
+  if (!v) return '—'
+  return LEGACY_IVR_NAMES[v] ?? v
 }
 const SOURCE_STYLE: Record<string, string> = {
   '電話帳': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
@@ -46,7 +60,7 @@ const DUR_OPTIONS = [
   { label: '3分以上',  value: '180' },
   { label: '5分以上',  value: '300' },
 ]
-const STATUS_OPTS = ['ANSWERED', 'NO ANSWER', 'BUSY'] as const
+const STATUS_OPTS = ['ANSWERED', 'NO ANSWER', 'BUSY', 'VOICEMAIL', 'REJECTED'] as const
 
 function fmtDate(s: string) {
   const d = new Date(new Date(s).getTime() + 9 * 60 * 60 * 1000)
@@ -68,12 +82,19 @@ function isSearchableNumber(caller?: string | null): boolean {
   return !!caller && caller.startsWith('0') && caller.length >= 10
 }
 
+// 2-4: 旧取込分に残る 81/+81 形式（0落ち国際表記）を表示だけ国内 0 形式へ（フィルタ値は原文のまま）
+function fmt81(n?: string | null): string {
+  if (!n) return ''
+  return /^81[1-9][0-9]{8,9}$/.test(n) ? '0' + n.slice(2) : n
+}
+
 export default function CallsClient({
-  calls, total, page, filters, names, partners, isAdmin, excludeIntDefault,
+  calls, total, page, filters, names, partners, isAdmin, excludeIntDefault, extNames = {},
 }: {
   calls: Call[]; total: number; page: number
   filters: CallsFilters; names: ResolvedEntry[]; partners: PartnerOpt[]; isAdmin: boolean
   excludeIntDefault: boolean
+  extNames?: Record<string, string>
 }) {
   const dir = filters.dir === 'out' ? 'out' : 'in'
   const router   = useRouter()
@@ -108,6 +129,7 @@ export default function CallsClient({
   const [saving,      setSaving]      = useState(false)
   const [editError,   setEditError]   = useState('')
   const [isRefreshing, startRefresh]  = useTransition()
+  const [playingId, setPlayingId] = useState<number | null>(null) // 2-1 録音のインライン再生
 
   // ── URL builder ──
   function buildUrl(ov: {
@@ -410,13 +432,14 @@ export default function CallsClient({
               <th className="text-left px-4 py-2">{dir === 'out' ? '発信内線' : '回線'}</th>
               <th className="text-left px-4 py-2">IVR</th>
               <th className="text-center px-4 py-2">通話時間</th>
+              <th className="text-center px-4 py-2">録音</th>
               <th className="text-center px-4 py-2">ステータス</th>
             </tr>
           </thead>
           <tbody>
             {calls.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-16 text-gray-400 dark:text-gray-500 text-sm">
+                <td colSpan={8} className="text-center py-16 text-gray-400 dark:text-gray-500 text-sm">
                   該当する通話がありません
                 </td>
               </tr>
@@ -431,10 +454,10 @@ export default function CallsClient({
                     <div className="flex items-center gap-1 group">
                       <button onClick={() => clickCaller(other)}
                         className="font-mono text-xs text-indigo-600 dark:text-indigo-400 hover:underline" title="この番号で絞り込み">
-                        {other || '—'}
+                        {fmt81(other) || '—'}
                       </button>
-                      {isSearchableNumber(other) && (
-                        <a href={NUMBER_SEARCH_SITES[0].url(other)} target="_blank" rel="noopener noreferrer"
+                      {isSearchableNumber(fmt81(other)) && (
+                        <a href={NUMBER_SEARCH_SITES[0].url(fmt81(other))} target="_blank" rel="noopener noreferrer"
                           className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-xs transition-opacity"
                           title="この番号をネットで検索">
                           🔍
@@ -541,9 +564,40 @@ export default function CallsClient({
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-2 font-medium text-gray-700 dark:text-gray-300">{(dir === 'out' ? c.caller : c.line_name) || '—'}</td>
-                  <td className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 max-w-48 truncate">{c.ivr_route || '—'}</td>
+                  <td className="px-4 py-2 font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    {dir === 'out' ? (
+                      c.caller ? <>{c.caller}{extNames[c.caller] && <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">{extNames[c.caller]}</span>}</> : '—'
+                    ) : c.line_name ? (
+                      c.line_name
+                    ) : /^[0-9]{3,4}$/.test(c.destination ?? '') ? (
+                      // 内線同士: 誰から誰へ（発信元列=発信内線・ここ=着信内線）
+                      <span className="text-xs">内線→ {c.destination}{extNames[c.destination] && <span className="ml-1 text-gray-500 dark:text-gray-400">{extNames[c.destination]}</span>}</span>
+                    ) : '—'}
+                  </td>
+                  <td className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 max-w-48 truncate">{fmtIvrRoute(c.ivr_route)}</td>
                   <td className="px-4 py-2 text-center text-gray-600 dark:text-gray-300">{fmtSec(c.duration_sec)}</td>
+                  <td className="px-4 py-2 text-center whitespace-nowrap">
+                    {c.recording_file ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <button
+                          onClick={() => setPlayingId(playingId === c.id ? null : c.id)}
+                          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                          title={playingId === c.id ? '閉じる' : '録音を再生'}>
+                          {playingId === c.id ? '⏹ 閉じる' : '▶ 再生'}
+                        </button>
+                        <a href={`/n/api/calls/recording?id=${c.id}&dl=1`}
+                          className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                          title="録音をダウンロード">⬇</a>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
+                    )}
+                    {playingId === c.id && c.recording_file && (
+                      <div className="mt-1">
+                        <audio controls autoPlay preload="none" src={`/n/api/calls/recording?id=${c.id}`} className="h-8 w-56" />
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-2 text-center">
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${STATUS_STYLE[c.status] || 'bg-gray-100 dark:bg-gray-800 text-slate-500'}`}>
                       {STATUS_LABEL[c.status] || c.status}

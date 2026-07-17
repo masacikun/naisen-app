@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 // - nginx 側は /n/api/sync/ の IP 制限（TelPro FreePBX のみ）を通過してくる
 // - 認証は Bearer（curl/dialplan 用）に加え Basic も可（cidlookup GUI は user:pass しか渡せない）
 // - 名前解決は履歴画面と同一の resolveCallerNames（電話帳→名刺→取引先→従業員）
-// - 電話帳ヒットはヒット番号の kind で 内線)/社内) プレフィックス（display-name.ts 共用）
+// - 電話帳ヒットはヒット番号の kind で 内線)/外線)/携帯)/AP) プレフィックス（display-name.ts 共用）
 // - 失敗・未登録・blocked は空文字 200（着信フローを止めない fail-open）
 function respond(name: string, json: boolean) {
   return json

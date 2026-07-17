@@ -144,9 +144,12 @@ describe('buildNumberRows', () => {
       { phone_raw: '0120-000-000', phone_normalized: '0120000000', label: null, kind: 'external', entry_id: 7 },
     ])
   })
-  it('kind を指定すれば保持・不正値は external に丸める', () => {
+  it('kind を指定すれば保持・旧 internal は company_050・不正値は external に丸める', () => {
     expect(buildNumberRows([{ raw: '8001', kind: 'extension' }], 1)[0].kind).toBe('extension')
-    expect(buildNumberRows([{ raw: '090-1111-2222', kind: 'internal' }], 1)[0].kind).toBe('internal')
+    expect(buildNumberRows([{ raw: '050-1111-2222', kind: 'company_050' }], 1)[0].kind).toBe('company_050')
+    expect(buildNumberRows([{ raw: '090-1111-2222', kind: 'mobile' }], 1)[0].kind).toBe('mobile')
+    expect(buildNumberRows([{ raw: '090-1111-2222', kind: 'ap' }], 1)[0].kind).toBe('ap')
+    expect(buildNumberRows([{ raw: '090-1111-2222', kind: 'internal' }], 1)[0].kind).toBe('company_050')
     expect(buildNumberRows([{ raw: '090-1111-2222', kind: 'bogus' }], 1)[0].kind).toBe('external')
   })
 })

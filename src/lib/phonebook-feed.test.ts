@@ -4,6 +4,7 @@ import {
   toDialable,
   toFeedEntries,
   buildAcrobitsJson,
+  feedDisplayName,
   isNotModified,
   parseGroupsParam,
   type FeedEntryRow,
@@ -65,7 +66,7 @@ describe('toFeedEntries（除外規則）', () => {
     const out = toFeedEntries([row(1, 'A', { phonebook_numbers: [num('anonymous', null)] })])
     expect(out).toEqual([])
   })
-  it('kind を番号ごとに保持し displayName は素の name（プレフィックスなし）', () => {
+  it('kind を番号ごとに保持し name は素のまま（旧 internal は company_050 に丸め）', () => {
     const out = toFeedEntries([
       row(1, '中村まさし', {
         phonebook_numbers: [num('8001', null, 'extension'), num('09011112222', '09011112222', 'internal')],
@@ -74,8 +75,36 @@ describe('toFeedEntries（除外規則）', () => {
     expect(out[0].name).toBe('中村まさし')
     expect(out[0].numbers).toEqual([
       { dial: '8001', kind: 'extension', label: null },
-      { dial: '09011112222', kind: 'internal', label: null },
+      { dial: '09011112222', kind: 'company_050', label: null },
     ])
+  })
+})
+
+describe('feedDisplayName（配信displayNameのkindプレフィックス）', () => {
+  it('extension を含むエントリは 内線)名前', () => {
+    const out = toFeedEntries([
+      row(1, '中村 まさし', { phonebook_numbers: [num('7000', null, 'extension')] }),
+    ])
+    expect(feedDisplayName(out[0])).toBe('内線)中村 まさし')
+  })
+  it('extension + company_050 は extension 優先で 内線)', () => {
+    const out = toFeedEntries([
+      row(1, '小林 昌義', {
+        phonebook_numbers: [num('7001', null, 'extension'), num('05053711023', '05053711023', 'company_050')],
+      }),
+    ])
+    expect(feedDisplayName(out[0])).toBe('内線)小林 昌義')
+  })
+  it('company_050 のみは 外線)・mobile は 携帯)・ap は AP)', () => {
+    const mk = (kind: string) =>
+      toFeedEntries([row(1, 'X', { phonebook_numbers: [num('05011112222', '05011112222', kind)] })])[0]
+    expect(feedDisplayName(mk('company_050'))).toBe('外線)X')
+    expect(feedDisplayName(mk('mobile'))).toBe('携帯)X')
+    expect(feedDisplayName(mk('ap'))).toBe('AP)X')
+  })
+  it('external のみはプレフィックスなし', () => {
+    const out = toFeedEntries([row(1, '昭南開発')])
+    expect(feedDisplayName(out[0])).toBe('昭南開発')
   })
 })
 

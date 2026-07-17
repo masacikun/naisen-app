@@ -99,9 +99,13 @@ export function parseNumbersInput(
 
 export type NumberInput = string | { raw: string; label?: string | null; kind?: string | null }
 
-/** kind の許容値（不正・未指定は external）。extension=内線 / internal=社内の外線・携帯 */
-export function sanitizeNumberKind(kind: string | null | undefined): 'extension' | 'internal' | 'external' {
-  return kind === 'extension' || kind === 'internal' ? kind : 'external'
+/** kind の許容値（display-name.ts の NumberKind と同一。旧 internal は company_050・不正は external） */
+export function sanitizeNumberKind(
+  kind: string | null | undefined,
+): 'extension' | 'company_050' | 'mobile' | 'ap' | 'external' {
+  if (kind === 'extension' || kind === 'company_050' || kind === 'mobile' || kind === 'ap') return kind
+  if (kind === 'internal') return 'company_050' // 2026-07-18 kind拡張前の旧値（互換）
+  return 'external'
 }
 
 /** body.book_keys（掲載電話帳）のサニタイズ。配列以外は undefined（=既存維持/新規は all） */

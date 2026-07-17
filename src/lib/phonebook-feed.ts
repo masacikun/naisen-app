@@ -2,7 +2,7 @@
 // ?user=<内線番号> → 購読電話帳(identity_books)を解決 → 掲載(entry_books)で連絡先を絞る。
 // 購読0件は 'all' へフォールバック。退職(active=false)・着信拒否(blocked)は除外。
 // DB アクセスは phonebook-feed-server.ts 側（この分離は vitest のため）。
-import { type NumberKind, toNumberKind } from './display-name'
+import { type NumberKind, toNumberKind, displayNameWithPrefix, entryDisplayKind } from './display-name'
 
 export interface FeedNumberRow {
   phone_raw: string
@@ -55,9 +55,14 @@ export function toDialable(n: FeedNumberRow): string | null {
   return digits.length > 0 ? digits : null
 }
 
+/** 配信用の表示名（displayName / vCard FN）。エントリ内番号の優先 kind でプレフィックスを付ける（2026-07-18） */
+export function feedDisplayName(e: FeedEntry): string {
+  return displayNameWithPrefix(e.name, entryDisplayKind(e.numbers.map(n => n.kind)))
+}
+
 /**
  * DB 行 → 配信エントリ。退職・着信拒否・番号0件を除外し番号をダイヤル可能形へ。
- * displayName は素の name（着信名プレフィックスは lookup 側で番号 kind から付与）。
+ * displayName は feedDisplayName（kind プレフィックス付き・2026-07-18 掲載ルール改定）。
  */
 export function toFeedEntries(rows: FeedEntryRow[]): FeedEntry[] {
   const out: FeedEntry[] = []
@@ -95,6 +100,7 @@ export interface AcrobitsContact {
 /**
  * Acrobits Groundwire Web Service Contacts JSON。
  * contactId は entry PK（安定・一意でないと端末同期が壊れる）。
+ * displayName は kind プレフィックス付き（内線)/外線)/携帯)/AP)・external は素の name）。
  * checksum は updated_at（変更検知用）。phonetic はひらがな。
  * company は番頭さんの区分名（公式 schema にグループ項目が無いため最近縁キーに載せる。
  * Groundwire の一覧はフラットで畳み表示はされない＝詳細画面・検索用）。
@@ -103,7 +109,7 @@ export function buildAcrobitsJson(entries: FeedEntry[]): { contacts: AcrobitsCon
   return {
     contacts: entries.map(e => ({
       contactId: String(e.id),
-      displayName: e.name,
+      displayName: feedDisplayName(e),
       fnamePhonetic: e.furigana ?? '',
       lnamePhonetic: '',
       company: e.category ?? '',

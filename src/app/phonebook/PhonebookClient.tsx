@@ -55,15 +55,21 @@ const VIEWS: { key: View; label: string }[] = [
 ]
 
 const KIND_OPTIONS = [
-  { key: 'external',  label: '外部' },
-  { key: 'internal',  label: '社内' },
-  { key: 'extension', label: '内線' },
+  { key: 'external',    label: '外部' },
+  { key: 'extension',   label: '内線' },
+  { key: 'company_050', label: '外線050' },
+  { key: 'mobile',      label: '携帯' },
+  { key: 'ap',          label: 'AP' },
 ]
 const KIND_BADGE: Record<string, string> = {
-  extension: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-  internal:  'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+  extension:   'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+  company_050: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+  mobile:      'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  ap:          'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
 }
-const KIND_LABEL: Record<string, string> = { extension: '内線', internal: '社内' }
+const KIND_LABEL: Record<string, string> = {
+  extension: '内線', company_050: '外線', mobile: '携帯', ap: 'AP',
+}
 
 const STATUS_STYLE: Record<string, string> = {
   'ANSWERED':  'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
@@ -500,7 +506,8 @@ export default function PhonebookClient({
           <div className="space-y-1.5">
             <div className="text-xs text-gray-500 dark:text-gray-400">
               電話番号（複数可。保存時に正規化されます。1欄に「/」「、」区切りで複数貼り付けも可。
-              種別: 外部=取引先など / 社内=社用携帯・外線 / 内線=SIP内線→着信時に「社内)」「内線)」表示）
+              種別: 外部=取引先など（表示そのまま） / 内線=SIP内線→「内線)」/ 外線050=社員の050→「外線)」/
+              携帯=社員の携帯→「携帯)」/ AP=アルバイトの外線→「AP)」が配信・着信表示に付きます）
             </div>
             {form.numbers.map((n, i) => (
               <div key={i} className="flex gap-2">

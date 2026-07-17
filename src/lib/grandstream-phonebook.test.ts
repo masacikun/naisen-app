@@ -46,6 +46,13 @@ describe('buildGrandstreamXml', () => {
     expect(xml).toContain('<phonenumber>8001</phonenumber>')
   })
 
+  it('kind=extension は FirstName に 内線)プレフィックス', () => {
+    const e = entry(1, '本社', ['8001'])
+    e.numbers[0].kind = 'extension'
+    const xml = buildGrandstreamXml([e])
+    expect(xml).toContain('<FirstName>内線)本社</FirstName>')
+  })
+
   it('番号0件の連絡先は出力しない', () => {
     const xml = buildGrandstreamXml([entry(1, 'A', []), entry(2, 'B', ['0921234567'])])
     expect(xml).not.toContain('<id>1</id>')

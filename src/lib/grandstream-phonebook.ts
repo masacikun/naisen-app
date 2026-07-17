@@ -2,7 +2,7 @@
 // 出力形式は Grandstream AddressBook XML（GXP/DP/WP 共通の phonebook.xml 形式）。
 // 2026-07-16: 入力を配信共通の FeedEntry（phonebook-feed.ts）に統一（?user= 絞り込み・内線番号対応）。
 import { timingSafeEqual } from 'crypto'
-import type { FeedEntry } from './phonebook-feed'
+import { feedDisplayName, type FeedEntry } from './phonebook-feed'
 
 /** XML 特殊文字のエスケープ（& < > " '） */
 export function escapeXml(s: string): string {
@@ -31,7 +31,7 @@ export function buildGrandstreamXml(entries: FeedEntry[]): string {
       )
       .join('\n')
     contacts.push(
-      `  <Contact>\n    <id>${e.id}</id>\n    <FirstName>${escapeXml(e.name)}</FirstName>\n    <LastName></LastName>\n${phones}\n  </Contact>`,
+      `  <Contact>\n    <id>${e.id}</id>\n    <FirstName>${escapeXml(feedDisplayName(e))}</FirstName>\n    <LastName></LastName>\n${phones}\n  </Contact>`,
     )
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<AddressBook>\n  <version>1</version>\n${contacts.join('\n')}\n</AddressBook>\n`

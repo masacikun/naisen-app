@@ -78,7 +78,7 @@ FreePBX（TelPro 162.43.89.64）が pull する一方向フィード。契約は
 - nginx `location /n/api/sync/` は auth_request をバイパス（X-Auth-* はこの経路では常に空化）。既存 `/n` の Cookie 認証は不変
 - 実装: `src/lib/sync-auth.ts`（トークン検証）＋ `src/lib/sync-feed.ts`（整形・純関数）＋ `src/app/api/sync/*/route.ts`
 - FreePBX 側 puller（Contact Manager / Blacklist への反映）は別管理（TelPro 側）
-- **CID逆引き `GET /n/api/sync/lookup?number=<着信CID>`（2026-07-18）**: 着信番号→表示名 1 件を text/plain で返す（`?format=json` 可）。名前解決は履歴画面と同一の `resolveCallerNames`（電話帳→名刺→取引先→従業員）＋電話帳ヒットはヒット番号 kind で `display-name.ts` の 内線)/社内) プレフィックス。未登録・blocked・エラーは空文字 200（fail-open・着信を止めない）。着信CIDの `+81`/素の `81` 変形は `src/lib/cid-lookup.ts` の `normalizeCidNumber` で吸収（共通 `phone.ts` は不変）。認証は Bearer に加え Basic 可（FreePBX cidlookup モジュール対応・`isValidSyncAuth`）。nginx は既存 `location /n/api/sync/`（IP許可）配下のため**追加設定不要**
+- **CID逆引き `GET /n/api/sync/lookup?number=<着信CID>`（2026-07-18）**: 着信番号→表示名 1 件を text/plain で返す（`?format=json` 可）。名前解決は履歴画面と同一の `resolveCallerNames`（電話帳→名刺→取引先→従業員）＋電話帳ヒットはヒット番号 kind で `display-name.ts` の 内線)/外線)/携帯)/AP) プレフィックス。未登録・blocked・エラーは空文字 200（fail-open・着信を止めない）。着信CIDの `+81`/素の `81` 変形は `src/lib/cid-lookup.ts` の `normalizeCidNumber` で吸収（共通 `phone.ts` は不変）。認証は Bearer に加え Basic 可（FreePBX cidlookup モジュール対応・`isValidSyncAuth`）。nginx は既存 `location /n/api/sync/`（IP許可）配下のため**追加設定不要**
 
 ---
 
@@ -86,12 +86,12 @@ FreePBX（TelPro 162.43.89.64）が pull する一方向フィード。契約は
 
 番頭さんをマスタに、DP750（Grandstream XML）と Acrobits Groundwire（JSON）へ端末別の連絡先リストを配信する。設計詳細は **docs/phonebook-distribution.md** を参照。
 
-- **スキーマ**: phonebook_categories（区分・可変・未分類 is_system は削除不可・削除→FK on delete set default で未分類へ）/ phonebook_books（配信の束・seed: 本社/店舗/共通）/ phonebook_entry_books（掲載・多対多・0件=非掲載）/ phonebook_identity_books（内線→購読・0件=all フォールバック）/ phonebook_feed_state（Last-Modified 単一ソース・関連6テーブルの statement トリガで更新）。entries に furigana / furigana_verified / category_key / active（退職=false・暫定手動）、numbers に kind（extension/internal/external）
+- **スキーマ**: phonebook_categories（区分・可変・未分類 is_system は削除不可・削除→FK on delete set default で未分類へ）/ phonebook_books（配信の束・seed: 本社/店舗/共通）/ phonebook_entry_books（掲載・多対多・0件=非掲載）/ phonebook_identity_books（内線→購読・0件=all フォールバック）/ phonebook_feed_state（Last-Modified 単一ソース・関連6テーブルの statement トリガで更新）。entries に furigana / furigana_verified / category_key / active（退職=false・暫定手動）、numbers に kind（**2026-07-18 5種化**: extension=内線)/company_050=外線)/mobile=携帯)/ap=AP)/external=なし。旧 internal は company_050 に読替え）。entries に employee_no（FK→employees・任意・ON DELETE SET NULL）で社員と紐づけ（master-app 社員一覧が参照表示・人事連動の土台）
 - **配信API（Basic 認証共通・If-Modified-Since→304 対応）**:
   - `GET /n/api/phonebook/acrobits?user=<内線>` … Groundwire Web Service Contacts JSON（contactId=entry PK・fnamePhonetic=ふりがな・checksum=updated_at・**company=区分名 2026-07-18**）。**配布推奨URLは `?user=%account[username]%`（端末が内線を自動送信・全端末同一URL）**
   - `GET /n/api/phonebook/grandstream?user=<内線>` … AddressBook XML（?user= 無しは従来どおり全件＝既存 GDMS 設定互換）
   - 絞り込み共通: `?groups=`（旧形式・group_name・テスト用オーバーライド・groups 優先）/ 退職・blocked 除外 / 番号はダイヤル可能形（先頭0国内表記・内線は数字そのまま）
-  - 実装: `src/lib/phonebook-feed.ts`（純関数）＋ `phonebook-feed-server.ts`（DB）＋ `display-name.ts`（内線)/社内) プレフィックス・/api/sync/lookup と共用 2026-07-18）
+  - 実装: `src/lib/phonebook-feed.ts`（純関数）＋ `phonebook-feed-server.ts`（DB）＋ `display-name.ts`（内線)/外線)/携帯)/AP) プレフィックス。配信 displayName/vCard FN（エントリ内番号の優先 kind extension>company_050>mobile>ap で付与）と /api/sync/lookup で共用 2026-07-18）
 - **ふりがな**: `GET /n/api/furigana?name=◯◯` →ひらがな（kuroshiro+kuromoji・辞書はシングルトン初回読込・カタカナは kataToHira で後段変換）。一括バックフィル `scripts/backfill-furigana.mjs`（2026-07-16 実行済み・958件生成・既存1件温存・verified=false）。フォームは名前 blur/paste で自動入力→人が「確認済」チェック
 - **UI**: /n/phonebook「連絡先」（区分フィルタ・在職者のみ・ふりがな未確認のみ・掲載電話帳チップ・区分/電話帳管理パネル〔削除は確認付き・区分削除→未分類/電話帳削除→掲載と割当から自動除去・all は削除不可〕）＋ /n/phonebook/devices「端末電話帳」（内線ごとに配る電話帳を on/off・未設定=共通）
 - **管理API**: `/n/api/phonebook/categories`・`books`（GET/POST/DELETE）・`identity-books`（GET/PUT/DELETE）。変更は admin のみ（fail-closed）

@@ -38,11 +38,13 @@ export function entryDisplayKind(kinds: NumberKind[]): NumberKind {
 
 // 拠点内線（共有内線）の配信表示名は、エントリ名ではなく拠点略称で「内線)<略称>」にする（まさし指定 2026-07-18）。
 // 外線側の店舗名 prepend（FreePBX RG ラベル・cidlookup の着信名）とは独立した配信専用マップ。
-// 未登録の内線（個人 7000 台・8002/8004 など）は従来どおり 内線)<エントリ名> のまま。
+// 未登録の内線（個人 7000 台など）は従来どおり 内線)<エントリ名> のまま。
 const SITE_EXTENSION_LABELS: Record<string, string> = {
   '8000': '本社',
   '8001': '中洲',
+  '8002': '西新',
   '8003': 'CK',
+  '8004': 'イベント',
   '8900': '本社FAX',
 }
 

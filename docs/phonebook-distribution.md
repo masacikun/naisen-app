@@ -26,7 +26,7 @@
 - 共通仕様: `?groups=`（旧形式・group_name 絞り＝テスト用オーバーライド・user と両方来たら groups 優先）／退職・blocked 除外／`If-Modified-Since`→304（`Last-Modified`=feed_state）／番号はダイヤル可能形（先頭0国内表記・内線は数字そのまま）
 - 端末は動的IPのため **IP制限不可＝Basic over https**。IP固定許可は `/lookup`（PBX）のみ。
 
-## CardDAV 配信（retail Groundwire の正式経路・2026-07-17）
+## CardDAV 配信（2026-07-17 時点の正式経路 → **2026-07-18 改訂で予備経路へ降格**。最新は文末「改訂（2026-07-18）」参照）
 
 **retail（App Store版）Groundwire は provlinkbs:// スキーム未登録**でプロビジョニング起動不可と実機確定
 （「Groundwireで開く」ボタン・Appleメモのリンクとも発火せず）。そのため **CardDAV を主経路**とする。
@@ -187,3 +187,58 @@ wsContactsRefreshInterval  = 300
    - それでも不可なら、この retail 版が `provlinkbs` スキーム未登録の可能性 → 要報告（次善策: CardDAV 連絡先ソース〔Groundwire GUI で手入力可〕をサーバーに追加する案。ただし wsContacts とは別実装）。
 
 **旧「iOS 読み込み手順」節（302 前提）は本改訂で置換**。サーバーの配布 XML（mergeable・wsContacts）は不変。
+
+---
+
+## 改訂（2026-07-18）: retail Groundwire は Web Services 手入力で wsContacts 設定可 → これを正式経路に
+
+**実機結果（まさし端末・2026-07-18）**: retail Groundwire の **Settings → Web Services** から wsContacts の
+URL・Basic 認証を**手入力**で設定でき、会社電話帳の表示に成功。**provlink プロビジョニングも CardDAV も不要**だった。
+
+- **正式経路 = Groundwire アプリ内 Settings → Web Services の手入力**（実装済みの `/n/api/phonebook/acrobits` をそのまま利用）。
+- **CardDAV（naisen-carddav・port 3012）は予備経路へ降格**（稼働は継続。iPhone 本体連絡先に入れたい場合や
+  wsContacts 非対応クライアント用に温存）。
+- provlink 系（タップ式ランディング含む）は retail で `provlinkbs://` が発火しないため**終了**（コードは温存・ビジネス版用）。
+
+### 推奨URL（配布・手順書はこの1本に統一）
+
+```
+https://banto.hakata-yamato.co.jp/n/api/phonebook/acrobits?user=%account[username]%
+```
+
+- `%account[username]%` は Groundwire が SIP アカウントのユーザー名（=内線番号）に**端末側で自動置換**して送信
+  → サーバーが `phonebook_identity_books` で購読電話帳を解決。全端末に同一 URL を配布すればよい。
+- Basic 認証 = `PHONEBOOK_USER` / `PHONEBOOK_PASS`（1Password「番頭さん 電話帳配信（Grandstream電話機用）」）。
+- ※まさし端末は検証時に `?user=8000` 直書きで設定済み → 上記 `%account[username]%` 形式へ手動で貼り替え予定。
+
+### 設定手順（利用者向け詳細は manual/naisen.html）
+
+1. Groundwire → Settings → **Web Services**（wsContacts / Web Contacts 相当の項目）を開く。
+2. URL に上記推奨URLを入力。認証ユーザー名/パスワードに Basic 認証情報を入力。
+3. 連絡先タブのソースに Web 電話帳が追加され、初回取得で会社電話帳が表示される（以後 定期ポーリングで自動更新・既定180秒）。
+
+### グループ（区分）表示の調査結論（2026-07-18）
+
+**公式 schema（doc.acrobits.net/api/client/web_contacts/）にグループ／カテゴリ項目は存在しない。**
+Contact dictionary の全キーは以下のみで、畳み表示・セクション分け用のフィールドは無い:
+
+```
+contactId, displayName, checksum, fname, mname, lname,
+fnamePhonetic, mnamePhonetic, lnamePhonetic, nick, namePrefix, nameSuffix,
+company, departmentName, jobTitle, birthday, notes, contactEntries, contactAddresses
+```
+
+→ **wsContacts JSON では区分ごとの畳み表示は不可**（Groundwire の一覧はソース内フラット・ふりがな順）。
+
+**実施した実装（最近縁キーへの搭載）**: 番頭さんの区分名（取引先/社内/店舗/ホテル/アルバイト/その他/未分類）を
+`company` フィールドに載せて配信（`phonebook_entries.category_key` → `phonebook_categories.name`）。
+CardDAV 側も同値を vCard `ORG:` に搭載。
+
+- 期待できる効果: 連絡先**詳細画面に区分が表示**される・検索で「店舗」等の区分名がヒットする見込み（company が検索対象かは実機確認対象）。
+- 期待できない効果: 一覧の畳み表示・セクションヘッダ（schema 上のフィールドが無く、Groundwire UI にもグループ表示機能が無い）。
+
+**代替案の所見**（畳み表示がどうしても必要になった場合）:
+1. **displayName 区分プレフィックス**（例「【店舗】博多大和」）: ふりがな順ソートのため**プレフィックスでは並びがまとまらない**
+   （並びは fnamePhonetic 基準）。まとめるにはふりがな側にも接頭辞が必要になり、着信画面・履歴の表示名も汚れる。**非推奨**。
+2. **区分ごとに電話帳（books）を分けて購読制御**: 既存機構で「見える範囲」は制御できるが、一覧内の畳みではない。
+3. 現実解は **company 搭載（実施済み）＋検索運用**。

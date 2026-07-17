@@ -89,6 +89,7 @@ export function buildVcard(c) {
     lines.push(`X-PHONETIC-LAST-NAME:${escapeVcard(kana)}`)
     lines.push(`SORT-STRING:${escapeVcard(kana)}`)
   }
+  if (c.company) lines.push(`ORG:${escapeVcard(c.company)}`)
   for (const e of c.contactEntries ?? []) {
     if (e.type !== 'tel' || !e.uri) continue
     const label = (e.label || 'work').replace(/[^0-9A-Za-z　-鿿豈-﫿぀-ヿ・ー\- ]/g, '')

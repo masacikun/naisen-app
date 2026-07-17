@@ -41,6 +41,10 @@ describe('buildVcard', () => {
     expect(v2).not.toContain('X-PHONETIC')
     expect(v2).not.toContain('SORT-STRING')
   })
+  it('company（区分名）は ORG に・無ければ出さない', () => {
+    expect(buildVcard({ ...contact, company: '店舗' })).toContain('ORG:店舗')
+    expect(v).not.toContain('ORG:')
+  })
 })
 
 describe('escape/rev', () => {

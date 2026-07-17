@@ -10,7 +10,7 @@ import {
 } from './phonebook-feed'
 
 const FEED_SELECT =
-  'id,name,furigana,blocked,active,updated_at,phonebook_numbers(phone_raw,phone_normalized,label,kind)'
+  'id,name,furigana,blocked,active,updated_at,phonebook_numbers(phone_raw,phone_normalized,label,kind),phonebook_categories(name)'
 
 /** 配信キャッシュの Last-Modified（feed_state はトリガで entries/books/掲載/割当の変更時に更新される） */
 export async function fetchFeedLastModified(): Promise<Date | null> {
@@ -37,7 +37,7 @@ export async function fetchFeedEntries(
       .order('id')
       .limit(5000)
     if (error) throw new Error(error.message)
-    return toFeedEntries((data ?? []) as FeedEntryRow[])
+    return toFeedEntries((data ?? []) as unknown as FeedEntryRow[])
   }
 
   if (user) {
@@ -68,5 +68,5 @@ export async function fetchFeedEntries(
     .order('id')
     .limit(5000)
   if (error) throw new Error(error.message)
-  return toFeedEntries((data ?? []) as FeedEntryRow[])
+  return toFeedEntries((data ?? []) as unknown as FeedEntryRow[])
 }

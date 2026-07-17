@@ -80,6 +80,16 @@ describe('toFeedEntries（除外規則）', () => {
 })
 
 describe('buildAcrobitsJson', () => {
+  it('company に区分名を載せる（区分なしは空文字）', () => {
+    const json = buildAcrobitsJson(
+      toFeedEntries([
+        row(1, '博多大和', { phonebook_categories: { name: '店舗' } }),
+        row(2, '区分なし'),
+      ]),
+    )
+    expect(json.contacts[0].company).toBe('店舗')
+    expect(json.contacts[1].company).toBe('')
+  })
   it('contactId は entry PK 文字列で一意・checksum は updated_at・phonetic はふりがな', () => {
     const json = buildAcrobitsJson(
       toFeedEntries([

@@ -87,7 +87,7 @@ FreePBX（TelPro 162.43.89.64）が pull する一方向フィード。契約は
 
 - **スキーマ**: phonebook_categories（区分・可変・未分類 is_system は削除不可・削除→FK on delete set default で未分類へ）/ phonebook_books（配信の束・seed: 本社/店舗/共通）/ phonebook_entry_books（掲載・多対多・0件=非掲載）/ phonebook_identity_books（内線→購読・0件=all フォールバック）/ phonebook_feed_state（Last-Modified 単一ソース・関連6テーブルの statement トリガで更新）。entries に furigana / furigana_verified / category_key / active（退職=false・暫定手動）、numbers に kind（extension/internal/external）
 - **配信API（Basic 認証共通・If-Modified-Since→304 対応）**:
-  - `GET /n/api/phonebook/acrobits?user=<内線>` … Groundwire Web Service Contacts JSON（contactId=entry PK・fnamePhonetic=ふりがな・checksum=updated_at）
+  - `GET /n/api/phonebook/acrobits?user=<内線>` … Groundwire Web Service Contacts JSON（contactId=entry PK・fnamePhonetic=ふりがな・checksum=updated_at・**company=区分名 2026-07-18**）。**配布推奨URLは `?user=%account[username]%`（端末が内線を自動送信・全端末同一URL）**
   - `GET /n/api/phonebook/grandstream?user=<内線>` … AddressBook XML（?user= 無しは従来どおり全件＝既存 GDMS 設定互換）
   - 絞り込み共通: `?groups=`（旧形式・group_name・テスト用オーバーライド・groups 優先）/ 退職・blocked 除外 / 番号はダイヤル可能形（先頭0国内表記・内線は数字そのまま）
   - 実装: `src/lib/phonebook-feed.ts`（純関数）＋ `phonebook-feed-server.ts`（DB）＋ `display-name.ts`（内線)/社内) プレフィックス・/lookup と共用予定）
@@ -99,7 +99,9 @@ FreePBX（TelPro 162.43.89.64）が pull する一方向フィード。契約は
 - **Groundwire プロビジョニング配布（2026-07-17・provlinkbs 方式）**: `GET /n/api/phonebook/provisioning/groundwire?token=<PROVISIONING_TOKEN>` を新設。アプリUA(`acrobits|groundwire|cloudsoftphone`)には wsContacts 系 prefKey だけの mergeable `<account>` XML(priority=5)を返し既存SIPアカウントを温存、ブラウザ/カメラには「Groundwire で開く」ボタン付きHTMLランディングを返す（iOSはカスタムスキームを**タップ時のみ**発火＝302リダイレクトは不可の実機知見 2026-07-17。ボタン href=`provlinkbs://…?fmt=xml`）。token(=`.env.local` PROVISIONING_TOKEN・未設定/不一致404)でフィード認証情報を保護。個人連絡先ソース(ab)は不変=本体連絡先ON・iPhone連絡先には非書込。nginx `location = /n/api/phonebook/provisioning/groundwire` バイパス 2026-07-17 適用。実装 `src/app/api/phonebook/provisioning/groundwire/route.ts`。手順/QR/検証観点は docs。**まさし1台テスト待ち**
 - **一括更新（2026-07-17）**: 旧「その他_SmileEstate」29件を物理削除（numbers/entry_books は FK cascade）。管理会社_SmileEstate 448＋ホテル 15＝463件を電話帳「SmileEstate」（book_mrnjlno5・UI作成）に掲載し「共通(all)」から除去 → all 配信は184件・SmileEstate 購読は463件（実測）。事前バックアップ /var/backups/bantosan/phonebook_pre_bulk_20260717.sql
 - **ふりがな verified の UI 撤去（2026-07-17）**: 一覧の「未確認」バッジ・「未確認のみ」フィルタ・フォームの「確認済」チェックを削除（furigana_verified 列とデータ・自動入力 /api/furigana は温存＝UI表出のみ撤去）
-- **残作業**: Groundwire プロビジョニング＝実装済み（**タップ式ランディングに改訂 2026-07-17**・リンク302はiOSで不可と判明）・**まさし1台テスト待ち**／人事（employees）との active 自動連動（内線⇔社員の紐付けキー決定待ち）
+- **retail Groundwire 正式経路確定（2026-07-18）**: Settings → Web Services の**手入力**で wsContacts 設定可と実機確定（まさし端末・provlink/CardDAV 不要）。配布URLは `https://banto.hakata-yamato.co.jp/n/api/phonebook/acrobits?user=%account[username]%` に統一。CardDAV（naisen-carddav:3012）は予備経路として稼働継続。provlink 系はコード温存のみ
+- **区分の配信（2026-07-18）**: Acrobits 公式 schema にグループ／カテゴリ項目は**無い**（畳み表示は不可）→ 最近縁の `company` に区分名（phonebook_categories.name）を搭載。CardDAV は vCard `ORG:` に同値。詳細と代替所見は docs/phonebook-distribution.md「改訂（2026-07-18）」
+- **残作業**: 人事（employees）との active 自動連動（内線⇔社員の紐付けキー決定待ち）／まさし端末の wsContacts URL を `?user=8000` 直書き → `%account[username]%` 形式へ貼り替え
 - pm2 は kuromoji 辞書分を見込み `--max-memory-restart 512M`（deploy.yml）
 
 ---

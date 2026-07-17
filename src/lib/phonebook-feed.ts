@@ -19,6 +19,7 @@ export interface FeedEntryRow {
   active?: boolean
   updated_at: string
   phonebook_numbers: FeedNumberRow[]
+  phonebook_categories?: { name: string } | null
 }
 
 export interface FeedNumber {
@@ -31,6 +32,7 @@ export interface FeedEntry {
   id: number
   name: string
   furigana: string | null
+  category: string | null
   updatedAt: string
   numbers: FeedNumber[]
 }
@@ -72,6 +74,7 @@ export function toFeedEntries(rows: FeedEntryRow[]): FeedEntry[] {
       id: e.id,
       name: e.name,
       furigana: e.furigana ?? null,
+      category: e.phonebook_categories?.name ?? null,
       updatedAt: e.updated_at,
       numbers,
     })
@@ -84,6 +87,7 @@ export interface AcrobitsContact {
   displayName: string
   fnamePhonetic: string
   lnamePhonetic: string
+  company: string
   contactEntries: { entryId: string; label: string; type: 'tel'; uri: string }[]
   checksum: string
 }
@@ -92,6 +96,8 @@ export interface AcrobitsContact {
  * Acrobits Groundwire Web Service Contacts JSON。
  * contactId は entry PK（安定・一意でないと端末同期が壊れる）。
  * checksum は updated_at（変更検知用）。phonetic はひらがな。
+ * company は番頭さんの区分名（公式 schema にグループ項目が無いため最近縁キーに載せる。
+ * Groundwire の一覧はフラットで畳み表示はされない＝詳細画面・検索用）。
  */
 export function buildAcrobitsJson(entries: FeedEntry[]): { contacts: AcrobitsContact[] } {
   return {
@@ -100,6 +106,7 @@ export function buildAcrobitsJson(entries: FeedEntry[]): { contacts: AcrobitsCon
       displayName: e.name,
       fnamePhonetic: e.furigana ?? '',
       lnamePhonetic: '',
+      company: e.category ?? '',
       contactEntries: e.numbers.map((n, i) => ({
         entryId: String(i),
         label: n.label || 'work',

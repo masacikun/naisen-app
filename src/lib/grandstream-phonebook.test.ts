@@ -8,6 +8,7 @@ const entry = (id: number, name: string, dials: string[]): FeedEntry => ({
   id,
   name,
   furigana: null,
+  category: null,
   updatedAt: '2026-07-16T10:00:00+09:00',
   numbers: dials.map((d): FeedNumber => ({ dial: d, kind: 'external', label: null })),
 })

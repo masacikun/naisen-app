@@ -1,11 +1,10 @@
 // FAX受信管理の共通定義（2026-07-18）
-export const FAX_STATUSES = ['untriaged', 'open', 'done', 'dm'] as const
+export const FAX_STATUSES = ['untriaged', 'open', 'done'] as const
 export type FaxStatus = (typeof FAX_STATUSES)[number]
 export const FAX_STATUS_LABELS: Record<FaxStatus, string> = {
   untriaged: '未仕分け',
   open: '未対応',
   done: '対応済み',
-  dm: 'DM(不要)',
 }
 
 export const FAX_CATEGORIES = ['invoice', 'payment', 'other'] as const

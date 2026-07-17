@@ -18,7 +18,7 @@ export default async function FaxDetailPage({ params }: { params: Promise<{ id: 
 
   const { data } = await supabaseServer
     .from('naisen_fax_messages')
-    .select('id, received_at, from_number, pages, pdf_filename, status, category, memo, drive_url, pbx_uniqueid')
+    .select('id, received_at, from_number, pages, pdf_filename, status, category, memo, drive_url, pbx_uniqueid, deleted_at')
     .eq('id', id)
     .maybeSingle()
   if (!data) notFound()

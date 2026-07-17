@@ -17,3 +17,30 @@ export function isValidSyncToken(
     return expected.length === given.length && timingSafeEqual(expected, given)
   })
 }
+
+/**
+ * Bearer に加えて Basic も受ける認証（CID逆引き /api/sync/lookup 用）。
+ * FreePBX cidlookup モジュールは user:pass の URL 埋め込み（=Basic）しか渡せないため、
+ * Basic の password 部を SYNC_FEED_TOKENS と照合する（username は不問）。
+ */
+export function isValidSyncAuth(
+  authHeader: string | null,
+  tokensEnv: string | undefined = process.env.SYNC_FEED_TOKENS,
+): boolean {
+  if (!authHeader) return false
+  if (authHeader.startsWith('Bearer ')) return isValidSyncToken(authHeader, tokensEnv)
+  if (authHeader.startsWith('Basic ')) {
+    let decoded: string
+    try {
+      decoded = Buffer.from(authHeader.slice('Basic '.length).trim(), 'base64').toString('utf8')
+    } catch {
+      return false
+    }
+    const sep = decoded.indexOf(':')
+    if (sep < 0) return false
+    const pass = decoded.slice(sep + 1)
+    if (!pass) return false
+    return isValidSyncToken(`Bearer ${pass}`, tokensEnv)
+  }
+  return false
+}

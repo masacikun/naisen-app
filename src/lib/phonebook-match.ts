@@ -14,10 +14,12 @@ export interface ResolvedName {
   group?: string | null        // 電話帳ヒット時のグループ名（履歴インライン編集用）
   partnerNo?: number        // 取引先ヒット時の partner_no（電話帳クイック登録の自動リンク用）
   partnerName?: string      // 電話帳ヒットで partner_id リンク済みの場合の取引先名
+  numberKind?: string | null // 電話帳ヒット時のヒット番号の kind（/lookup の 内線)/社内) プレフィックス用）
 }
 
 export interface PhonebookMatchRow {
   phone_normalized: string | null
+  kind?: string | null
   entry: { id: number; name: string; memo: string | null; blocked?: boolean; partner_id?: number | null; group_name?: string | null }
 }
 export interface PartnerRow { partner_no: number; partner_name: string; phone: string | null }
@@ -65,6 +67,7 @@ export function buildNameMap(
       note: row.entry.memo,
       blocked: row.entry.blocked ?? false,
       group: row.entry.group_name ?? null,
+      numberKind: row.kind ?? null,
       ...(partnerName ? { partnerName } : {}),
       ...(row.entry.partner_id != null ? { partnerNo: row.entry.partner_id } : {}),
     })

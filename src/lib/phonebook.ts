@@ -17,6 +17,7 @@ const IN_CHUNK = 100
 
 type RawPbRow = {
   phone_normalized: string | null
+  kind: string | null
   phonebook_entries:
     | { id: number; name: string; memo: string | null; blocked?: boolean; partner_id?: number | null; group_name?: string | null }
     | { id: number; name: string; memo: string | null; blocked?: boolean; partner_id?: number | null; group_name?: string | null }[]
@@ -33,11 +34,11 @@ export async function resolveCallerNames(callers: string[]): Promise<Map<string,
   for (let i = 0; i < norms.length; i += IN_CHUNK) {
     const { data } = await supabaseAdmin
       .from('phonebook_numbers')
-      .select('phone_normalized, phonebook_entries(id,name,memo,blocked,partner_id,group_name)')
+      .select('phone_normalized, kind, phonebook_entries(id,name,memo,blocked,partner_id,group_name)')
       .in('phone_normalized', norms.slice(i, i + IN_CHUNK))
     for (const r of (data ?? []) as RawPbRow[]) {
       const e = Array.isArray(r.phonebook_entries) ? r.phonebook_entries[0] : r.phonebook_entries
-      if (e) pbRows.push({ phone_normalized: r.phone_normalized, entry: e })
+      if (e) pbRows.push({ phone_normalized: r.phone_normalized, kind: r.kind, entry: e })
     }
   }
 

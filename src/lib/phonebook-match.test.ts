@@ -12,8 +12,17 @@ describe('buildNameMap', () => {
       noMaster.partners, noMaster.employees,
     )
     expect(map.get('0312345678')).toEqual({
-      name: 'テスト商店', source: '電話帳', entryId: 1, note: '得意先', blocked: false, group: null,
+      name: 'テスト商店', source: '電話帳', entryId: 1, note: '得意先', blocked: false, group: null, numberKind: null,
     })
+  })
+
+  it('電話帳ヒットはヒット番号の kind が numberKind に伝播（/lookup プレフィックス用）', () => {
+    const map = buildNameMap(
+      ['09012345678'],
+      [{ phone_normalized: '09012345678', kind: 'internal', entry: { id: 1, name: '社用携帯', memo: null } }],
+      noMaster.partners, noMaster.employees,
+    )
+    expect(map.get('09012345678')).toMatchObject({ name: '社用携帯', numberKind: 'internal' })
   })
 
   it('blocked が伝播し、多重ヒットは最小 entry_id が決定的に勝つ', () => {

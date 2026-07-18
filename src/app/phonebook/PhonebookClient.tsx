@@ -105,6 +105,7 @@ export default function PhonebookClient({
   const [view, setView] = useState<View>(initialQ ? 'all' : 'normal')
   const [q, setQ] = useState(initialQ)
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [bookFilter, setBookFilter] = useState('')
   const [activeOnly, setActiveOnly] = useState(true)
   const [editingId, setEditingId] = useState<number | 'new' | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -133,6 +134,8 @@ export default function PhonebookClient({
   const blockedCount = entries.filter(e => e.blocked).length
   let viewEntries = filterByView(entries, view)
   if (categoryFilter) viewEntries = viewEntries.filter(e => e.category_key === categoryFilter)
+  if (bookFilter === '__none') viewEntries = viewEntries.filter(e => e.phonebook_entry_books.length === 0)
+  else if (bookFilter) viewEntries = viewEntries.filter(e => e.phonebook_entry_books.some(b => b.book_key === bookFilter))
   if (activeOnly) viewEntries = viewEntries.filter(e => e.active)
 
   const qNorm = q.replace(/[^0-9]/g, '')
@@ -321,6 +324,147 @@ export default function PhonebookClient({
   const input = 'border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-3 py-1.5 text-sm'
   const nCols = isAdmin ? 8 : 7
 
+  // 追加・編集フォーム（admin のみ）。新規=一覧の上・既存の編集=該当行の直下にインライン表示
+  const editForm = editingId === null ? null : (
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-indigo-300 dark:border-indigo-700 p-4 space-y-3">
+      <div className="text-sm font-bold text-gray-700 dark:text-gray-300">
+        {editingId === 'new' ? '新規追加' : '編集'}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <input placeholder="名前（必須）" value={form.name}
+          onChange={e => setForm({ ...form, name: e.target.value })}
+          onBlur={e => autoFurigana(e.target.value)}
+          onPaste={e => {
+            const pasted = e.clipboardData.getData('text')
+            if (pasted.trim()) setTimeout(() => autoFurigana(pasted), 0)
+          }}
+          className={input} />
+        <input placeholder={furiganaLoading ? 'ふりがな生成中…' : 'ふりがな（自動・修正可）'}
+          value={form.furigana}
+          onChange={e => { setFuriganaEdited(true); setForm({ ...form, furigana: e.target.value }) }}
+          className={input} />
+        <select value={form.category_key}
+          onChange={e => setForm({ ...form, category_key: e.target.value })} className={input}>
+          {categories.map(c => (
+            <option key={c.key} value={c.key}>{c.name}</option>
+          ))}
+        </select>
+        <select value={form.partner_id}
+          onChange={e => setForm({ ...form, partner_id: e.target.value })} className={input}>
+          <option value="">取引先リンクなし</option>
+          {partners.map(p => (
+            <option key={p.partner_no} value={p.partner_no}>{p.partner_name}</option>
+          ))}
+        </select>
+      </div>
+      <input placeholder="メモ（任意）" value={form.memo}
+        onChange={e => setForm({ ...form, memo: e.target.value })} className={`${input} w-full`} />
+
+      {/* 掲載電話帳（多対多。0件＝どの端末にも配信されない） */}
+      <div className="space-y-1">
+        <div className="text-xs text-gray-500 dark:text-gray-400">掲載する電話帳（0件＝端末に配信されません）</div>
+        <div className="flex flex-wrap gap-1.5">
+          {books.map(b => (
+            <button key={b.key} onClick={() => toggleBookKey(b.key)}
+              className={`px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${
+                form.book_keys.includes(b.key)
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-slate-300 dark:border-gray-600'
+              }`}>
+              {b.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 着信拒否トグル */}
+      <label className="flex items-center gap-2 cursor-pointer w-fit">
+        <input type="checkbox" checked={form.blocked}
+          onChange={e => setForm({ ...form, blocked: e.target.checked })} className="rounded" />
+        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+          form.blocked ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+        }`}>
+          着信拒否 {form.blocked ? 'ON' : 'OFF'}
+        </span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">（拒否中は端末電話帳にも配信されません）</span>
+      </label>
+
+      {/* 電話番号（複数） */}
+      <div className="space-y-1.5">
+        <div className="text-xs text-gray-500 dark:text-gray-400">
+          電話番号（複数可。保存時に正規化されます。1欄に「/」「、」区切りで複数貼り付けも可。
+          種別: 外部=取引先など（表示そのまま） / 内線=SIP内線→「内線)」/ 外線050=社員の050→「外線)」/
+          携帯=社員の携帯→「携帯)」/ AP=アルバイトの外線→「AP)」が配信・着信表示に付きます）
+        </div>
+        {form.numbers.map((n, i) => (
+          <div key={i} className="flex gap-2">
+            <input placeholder="電話番号" value={n.raw}
+              onChange={e => setForm({
+                ...form,
+                numbers: form.numbers.map((x, j) => j === i ? { ...x, raw: e.target.value } : x),
+              })}
+              className={`${input} flex-1 font-mono`} />
+            <select value={n.kind}
+              onChange={e => setForm({
+                ...form,
+                numbers: form.numbers.map((x, j) => j === i ? { ...x, kind: e.target.value } : x),
+              })}
+              className={`${input} w-24`}>
+              {KIND_OPTIONS.map(k => <option key={k.key} value={k.key}>{k.label}</option>)}
+            </select>
+            <input placeholder="ラベル（携帯/代表 等）" value={n.label}
+              onChange={e => setForm({
+                ...form,
+                numbers: form.numbers.map((x, j) => j === i ? { ...x, label: e.target.value } : x),
+              })}
+              className={`${input} w-40`} />
+            <button onClick={() => setForm({ ...form, numbers: form.numbers.filter((_, j) => j !== i) })}
+              disabled={form.numbers.length <= 1}
+              className="px-2 rounded border text-xs text-gray-500 dark:text-gray-400 disabled:opacity-30">✕</button>
+          </div>
+        ))}
+        <button onClick={() => setForm({ ...form, numbers: [...form.numbers, { raw: '', label: '', kind: 'external' }] })}
+          className="px-2 py-1 rounded border text-xs text-gray-600 dark:text-gray-300">＋ 番号追加</button>
+        {(() => {
+          // 案B: 入力番号が取引先マスタと一致したらリンクを提案（自動マージはしない・人間が確定）
+          const norms = form.numbers
+            .flatMap(n => splitPhones(n.raw))
+            .map(sp => sp.normalized)
+            .filter((x): x is string => !!x)
+          if (norms.length === 0) return null
+          const cur = form.partner_id ? parseInt(form.partner_id) : null
+          const hits = partners.filter(p => {
+            if (!p.phone || p.partner_no === cur) return false
+            const pn = normalizePhone(p.phone)
+            return !!pn && norms.includes(pn)
+          })
+          if (hits.length === 0) return null
+          return (
+            <div className="rounded border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 space-y-1">
+              {hits.map(p => (
+                <div key={p.partner_no} className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-300">
+                  <span>取引先「{p.partner_name}」が同じ番号です</span>
+                  <button onClick={() => setForm({ ...form, partner_id: String(p.partner_no) })}
+                    className="px-2 py-0.5 rounded bg-emerald-600 text-white text-xs">リンクする</button>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
+      </div>
+
+      {error && <div className="text-xs text-red-600">{error}</div>}
+      <div className="flex gap-2">
+        <button onClick={save} disabled={saving || !form.name.trim()}
+          className="px-4 py-1.5 rounded bg-indigo-600 text-white text-sm disabled:opacity-40">
+          {saving ? '…' : '保存'}
+        </button>
+        <button onClick={() => { setEditingId(null); setError('') }}
+          className="px-4 py-1.5 rounded border text-sm text-gray-500 dark:text-gray-400">キャンセル</button>
+      </div>
+    </div>
+  )
+
   return (
     <div className="max-w-7xl mx-auto space-y-4">
       <div className="flex items-center justify-between">
@@ -365,6 +509,14 @@ export default function PhonebookClient({
             {categories.map(c => (
               <option key={c.key} value={c.key}>{c.name}</option>
             ))}
+          </select>
+          <select value={bookFilter} onChange={e => setBookFilter(e.target.value)}
+            className={`${input} py-1 text-xs`}>
+            <option value="">電話帳: すべて</option>
+            {books.map(b => (
+              <option key={b.key} value={b.key}>{b.name}</option>
+            ))}
+            <option value="__none">非掲載（登録のみ）</option>
           </select>
           <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
             <input type="checkbox" checked={activeOnly} onChange={e => setActiveOnly(e.target.checked)} className="rounded" />
@@ -437,146 +589,8 @@ export default function PhonebookClient({
         </div>
       )}
 
-      {/* 追加・編集フォーム（admin のみ） */}
-      {isAdmin && editingId !== null && (
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-indigo-300 dark:border-indigo-700 p-4 space-y-3">
-          <div className="text-sm font-bold text-gray-700 dark:text-gray-300">
-            {editingId === 'new' ? '新規追加' : '編集'}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <input placeholder="名前（必須）" value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
-              onBlur={e => autoFurigana(e.target.value)}
-              onPaste={e => {
-                const pasted = e.clipboardData.getData('text')
-                if (pasted.trim()) setTimeout(() => autoFurigana(pasted), 0)
-              }}
-              className={input} />
-            <input placeholder={furiganaLoading ? 'ふりがな生成中…' : 'ふりがな（自動・修正可）'}
-              value={form.furigana}
-              onChange={e => { setFuriganaEdited(true); setForm({ ...form, furigana: e.target.value }) }}
-              className={input} />
-            <select value={form.category_key}
-              onChange={e => setForm({ ...form, category_key: e.target.value })} className={input}>
-              {categories.map(c => (
-                <option key={c.key} value={c.key}>{c.name}</option>
-              ))}
-            </select>
-            <select value={form.partner_id}
-              onChange={e => setForm({ ...form, partner_id: e.target.value })} className={input}>
-              <option value="">取引先リンクなし</option>
-              {partners.map(p => (
-                <option key={p.partner_no} value={p.partner_no}>{p.partner_name}</option>
-              ))}
-            </select>
-          </div>
-          <input placeholder="メモ（任意）" value={form.memo}
-            onChange={e => setForm({ ...form, memo: e.target.value })} className={`${input} w-full`} />
-
-          {/* 掲載電話帳（多対多。0件＝どの端末にも配信されない） */}
-          <div className="space-y-1">
-            <div className="text-xs text-gray-500 dark:text-gray-400">掲載する電話帳（0件＝端末に配信されません）</div>
-            <div className="flex flex-wrap gap-1.5">
-              {books.map(b => (
-                <button key={b.key} onClick={() => toggleBookKey(b.key)}
-                  className={`px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${
-                    form.book_keys.includes(b.key)
-                      ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-slate-300 dark:border-gray-600'
-                  }`}>
-                  {b.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 着信拒否トグル */}
-          <label className="flex items-center gap-2 cursor-pointer w-fit">
-            <input type="checkbox" checked={form.blocked}
-              onChange={e => setForm({ ...form, blocked: e.target.checked })} className="rounded" />
-            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-              form.blocked ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-            }`}>
-              着信拒否 {form.blocked ? 'ON' : 'OFF'}
-            </span>
-            <span className="text-xs text-gray-400 dark:text-gray-500">（拒否中は端末電話帳にも配信されません）</span>
-          </label>
-
-          {/* 電話番号（複数） */}
-          <div className="space-y-1.5">
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              電話番号（複数可。保存時に正規化されます。1欄に「/」「、」区切りで複数貼り付けも可。
-              種別: 外部=取引先など（表示そのまま） / 内線=SIP内線→「内線)」/ 外線050=社員の050→「外線)」/
-              携帯=社員の携帯→「携帯)」/ AP=アルバイトの外線→「AP)」が配信・着信表示に付きます）
-            </div>
-            {form.numbers.map((n, i) => (
-              <div key={i} className="flex gap-2">
-                <input placeholder="電話番号" value={n.raw}
-                  onChange={e => setForm({
-                    ...form,
-                    numbers: form.numbers.map((x, j) => j === i ? { ...x, raw: e.target.value } : x),
-                  })}
-                  className={`${input} flex-1 font-mono`} />
-                <select value={n.kind}
-                  onChange={e => setForm({
-                    ...form,
-                    numbers: form.numbers.map((x, j) => j === i ? { ...x, kind: e.target.value } : x),
-                  })}
-                  className={`${input} w-24`}>
-                  {KIND_OPTIONS.map(k => <option key={k.key} value={k.key}>{k.label}</option>)}
-                </select>
-                <input placeholder="ラベル（携帯/代表 等）" value={n.label}
-                  onChange={e => setForm({
-                    ...form,
-                    numbers: form.numbers.map((x, j) => j === i ? { ...x, label: e.target.value } : x),
-                  })}
-                  className={`${input} w-40`} />
-                <button onClick={() => setForm({ ...form, numbers: form.numbers.filter((_, j) => j !== i) })}
-                  disabled={form.numbers.length <= 1}
-                  className="px-2 rounded border text-xs text-gray-500 dark:text-gray-400 disabled:opacity-30">✕</button>
-              </div>
-            ))}
-            <button onClick={() => setForm({ ...form, numbers: [...form.numbers, { raw: '', label: '', kind: 'external' }] })}
-              className="px-2 py-1 rounded border text-xs text-gray-600 dark:text-gray-300">＋ 番号追加</button>
-            {(() => {
-              // 案B: 入力番号が取引先マスタと一致したらリンクを提案（自動マージはしない・人間が確定）
-              const norms = form.numbers
-                .flatMap(n => splitPhones(n.raw))
-                .map(sp => sp.normalized)
-                .filter((x): x is string => !!x)
-              if (norms.length === 0) return null
-              const cur = form.partner_id ? parseInt(form.partner_id) : null
-              const hits = partners.filter(p => {
-                if (!p.phone || p.partner_no === cur) return false
-                const pn = normalizePhone(p.phone)
-                return !!pn && norms.includes(pn)
-              })
-              if (hits.length === 0) return null
-              return (
-                <div className="rounded border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 space-y-1">
-                  {hits.map(p => (
-                    <div key={p.partner_no} className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-300">
-                      <span>取引先「{p.partner_name}」が同じ番号です</span>
-                      <button onClick={() => setForm({ ...form, partner_id: String(p.partner_no) })}
-                        className="px-2 py-0.5 rounded bg-emerald-600 text-white text-xs">リンクする</button>
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
-          </div>
-
-          {error && <div className="text-xs text-red-600">{error}</div>}
-          <div className="flex gap-2">
-            <button onClick={save} disabled={saving || !form.name.trim()}
-              className="px-4 py-1.5 rounded bg-indigo-600 text-white text-sm disabled:opacity-40">
-              {saving ? '…' : '保存'}
-            </button>
-            <button onClick={() => { setEditingId(null); setError('') }}
-              className="px-4 py-1.5 rounded border text-sm text-gray-500 dark:text-gray-400">キャンセル</button>
-          </div>
-        </div>
-      )}
+      {/* 新規追加フォームのみ上部に表示（既存の編集は該当行の直下） */}
+      {isAdmin && editingId === 'new' && editForm}
 
       {!isAdmin && (
         <div className="text-xs text-gray-400 dark:text-gray-500">閲覧のみ（追加・編集・削除は管理者のみ）</div>
@@ -672,8 +686,12 @@ export default function PhonebookClient({
                 </td>
                 {isAdmin && (
                   <td className="px-4 py-2 text-center whitespace-nowrap">
-                    <button onClick={() => openEdit(e)}
-                      className="px-2 py-0.5 rounded border text-xs text-gray-600 dark:text-gray-300 mr-1">編集</button>
+                    <button onClick={() => editingId === e.id ? setEditingId(null) : openEdit(e)}
+                      className={`px-2 py-0.5 rounded border text-xs mr-1 ${
+                        editingId === e.id
+                          ? 'bg-slate-700 text-white border-slate-700'
+                          : 'text-gray-600 dark:text-gray-300'
+                      }`}>編集</button>
                     <button onClick={() => toggleBlocked(e)} disabled={saving}
                       title={e.blocked ? '解除して連絡先へ戻す（区分は維持）' : 'ブラックリストへ移動'}
                       className={`px-2 py-0.5 rounded text-xs mr-1 ${
@@ -697,6 +715,13 @@ export default function PhonebookClient({
                   </td>
                 )}
               </tr>
+              {isAdmin && editingId === e.id && (
+                <tr className="border-b bg-indigo-50/40 dark:bg-gray-800/40">
+                  <td colSpan={nCols} className="px-4 py-3">
+                    {editForm}
+                  </td>
+                </tr>
+              )}
               {historyId === e.id && (
                 <tr key={`h-${e.id}`} className="border-b bg-slate-50 dark:bg-gray-800/60">
                   <td colSpan={nCols} className="px-6 py-3">

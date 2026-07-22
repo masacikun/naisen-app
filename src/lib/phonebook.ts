@@ -7,6 +7,7 @@ import {
   type ResolvedName,
   type PhonebookMatchRow,
   type PartnerRow,
+  type PartnerExtraPhoneRow,
   type MeishiRow,
 } from './phonebook-match'
 
@@ -43,7 +44,7 @@ export async function resolveCallerNames(callers: string[]): Promise<Map<string,
   }
 
   // master・名刺フォールバック: 小規模テーブルのため全件取得し、正規化はコード側で行う
-  const [{ data: partners }, { data: employees }, { data: meishi }] = await Promise.all([
+  const [{ data: partners }, { data: employees }, { data: meishi }, { data: extraPhones }] = await Promise.all([
     // phone 有無を問わず全取引先を取得（電話帳エントリの partner_id → 取引先名の解決にも使う）
     supabaseAdmin
       .from('partners')
@@ -57,6 +58,10 @@ export async function resolveCallerNames(callers: string[]): Promise<Map<string,
       .from('business_cards')
       .select('name,company,tel,mobile')
       .or('tel.not.is.null,mobile.not.is.null'),
+    // 取引先の追加電話番号（partner_phone_numbers・番号相違や複数拠点用・2026-07-22）
+    supabaseAdmin
+      .from('partner_phone_numbers')
+      .select('partner_no,phone'),
   ])
 
   const employeeRows = ((employees ?? []) as {
@@ -66,7 +71,7 @@ export async function resolveCallerNames(callers: string[]): Promise<Map<string,
     phone_landline: e.phone_landline,
   }))
 
-  return buildNameMap(uniq, pbRows, (partners ?? []) as PartnerRow[], employeeRows, (meishi ?? []) as MeishiRow[])
+  return buildNameMap(uniq, pbRows, (partners ?? []) as PartnerRow[], employeeRows, (meishi ?? []) as MeishiRow[], (extraPhones ?? []) as PartnerExtraPhoneRow[])
 }
 
 /**
@@ -82,4 +87,45 @@ export async function fetchPhonebookNormalized(limit = 500): Promise<string[]> {
     .not('phone_normalized', 'is', null)
     .limit(limit)
   return [...new Set((data ?? []).map(r => r.phone_normalized as string))]
+}
+
+/**
+ * 電話帳エントリを取引先へリンクした時、その連絡先の番号を取引先の追加電話番号
+ * （master-app の partner_phone_numbers・番号相違や複数拠点用）へ同期する（2026-07-22 まさし指示）。
+ * 既存の partners.phone / partner_phone_numbers と正規化後に重複しないものだけ追加。
+ * fail-soft: 失敗してもリンク自体（POST/PUTの本処理）は止めない。
+ */
+export async function syncPartnerPhoneFromEntry(entryId: number, partnerId: number | null): Promise<void> {
+  if (partnerId == null) return
+  try {
+    const [{ data: numbers }, { data: partner }, { data: existing }, { data: entry }] = await Promise.all([
+      supabaseAdmin.from('phonebook_numbers').select('phone_raw').eq('entry_id', entryId),
+      supabaseAdmin.from('partners').select('phone').eq('partner_no', partnerId).maybeSingle(),
+      supabaseAdmin.from('partner_phone_numbers').select('phone').eq('partner_no', partnerId),
+      supabaseAdmin.from('phonebook_entries').select('name').eq('id', entryId).maybeSingle(),
+    ])
+    const knownNorm = new Set<string>()
+    if (partner?.phone) {
+      const n = normalizePhone(partner.phone)
+      if (n) knownNorm.add(n)
+    }
+    for (const r of (existing ?? []) as { phone: string }[]) {
+      const n = normalizePhone(r.phone)
+      if (n) knownNorm.add(n)
+    }
+    const toAdd: string[] = []
+    for (const r of (numbers ?? []) as { phone_raw: string }[]) {
+      const n = normalizePhone(r.phone_raw)
+      if (!n || knownNorm.has(n)) continue
+      knownNorm.add(n) // 同一リクエスト内の重複番号も間引く
+      toAdd.push(r.phone_raw)
+    }
+    if (toAdd.length === 0) return
+    const label = `電話帳連携: ${(entry?.name ?? '').trim()}`.trim()
+    await supabaseAdmin.from('partner_phone_numbers').insert(
+      toAdd.map(phone => ({ partner_no: partnerId, phone, label, source: 'phonebook_link' })),
+    )
+  } catch (e) {
+    console.error('[phonebook] syncPartnerPhoneFromEntry失敗（fail-soft・リンク自体は成立済み）:', e)
+  }
 }

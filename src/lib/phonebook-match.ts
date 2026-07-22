@@ -24,6 +24,7 @@ export interface PhonebookMatchRow {
   entry: { id: number; name: string; memo: string | null; blocked?: boolean; partner_id?: number | null; group_name?: string | null; category_key?: string | null }
 }
 export interface PartnerRow { partner_no: number; partner_name: string; phone: string | null }
+export interface PartnerExtraPhoneRow { partner_no: number; phone: string } // partner_phone_numbers（追加分・2026-07-22）
 export interface EmployeeRow { name: string; phone_landline: string | null }
 export interface MeishiRow { name: string | null; company: string | null; tel: string | null; mobile: string | null }
 
@@ -34,6 +35,7 @@ export function buildNameMap(
   partners: PartnerRow[],
   employees: EmployeeRow[],
   meishi: MeishiRow[] = [],
+  extraPartnerPhones: PartnerExtraPhoneRow[] = [],
 ): Map<string, ResolvedName> {
   // 優先度の低い順に詰め、高い方で上書き（従業員 → 取引先 → 名刺 → 電話帳）
   const byNorm = new Map<string, ResolvedName>()
@@ -45,6 +47,12 @@ export function buildNameMap(
   for (const p of partners) {
     const n = p.phone ? normalizePhone(p.phone) : null
     if (n) byNorm.set(n, { name: p.partner_name, source: '取引先', partnerNo: p.partner_no })
+  }
+  // 取引先の追加電話番号（partner_phone_numbers・番号相違や複数拠点用・2026-07-22）: 会社代表電話と同じ扱いで突合
+  for (const ep of extraPartnerPhones) {
+    const n = normalizePhone(ep.phone)
+    const name = partnersByNo.get(ep.partner_no)
+    if (n && name) byNorm.set(n, { name, source: '取引先', partnerNo: ep.partner_no })
   }
   for (const m of meishi) {
     // 表示は「会社 氏名」（片方欠けは有る方のみ）。tel/mobile の両方を突合キーにする

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { isAdminHeaders } from '@/lib/auth'
 import { buildNumberRows, parseBookKeys } from '@/lib/phonebook-match'
 import { attachLastCalls } from '@/lib/call-history-server'
+import { syncPartnerPhoneFromEntry } from '@/lib/phonebook'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,6 +73,9 @@ export async function POST(req: NextRequest) {
       .insert(bookKeys.map(k => ({ entry_id: entry.id, book_key: k })))
     if (bookErr) return NextResponse.json({ error: bookErr.message }, { status: 500 })
   }
+
+  // 取引先リンク時、連絡先の番号を取引先の追加電話番号へ同期（2026-07-22・fail-soft）
+  await syncPartnerPhoneFromEntry(entry.id, entry.partner_id)
 
   const { data: full } = await supabaseAdmin
     .from('phonebook_entries')

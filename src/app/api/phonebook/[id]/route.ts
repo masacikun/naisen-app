@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { isAdminHeaders } from '@/lib/auth'
 import { buildNumberRows, parseBookKeys } from '@/lib/phonebook-match'
+import { syncPartnerPhoneFromEntry } from '@/lib/phonebook'
 
 export const dynamic = 'force-dynamic'
 
@@ -73,6 +74,9 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
       if (bookErr) return NextResponse.json({ error: bookErr.message }, { status: 500 })
     }
   }
+
+  // 取引先リンク時、連絡先の番号を取引先の追加電話番号へ同期（2026-07-22・番号だけの変更でも再同期・fail-soft）
+  await syncPartnerPhoneFromEntry(id, entry.partner_id)
 
   const { data: full } = await supabaseAdmin
     .from('phonebook_entries')

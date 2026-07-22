@@ -2,6 +2,12 @@
 
 番頭さん（総合管理システム）の電話履歴管理アプリ。Next.js 16 App Router + PostgREST。
 
+## 通話履歴のクイック登録にカテゴリ選択を追加＋反映遅延の修正（2026-07-22）
+
+- `/calls` のクイック電話帳登録（✏️）に、`/phonebook` と同じ管理済みカテゴリ（`phonebook_categories`）のプルダウンを追加。`buildNameMap`（`lib/phonebook-match.ts`）が返す `ResolvedName.categoryKey` を新設し、編集フォーム・突合バッジ（未分類は非表示）の両方に反映。API側（`/api/phonebook` POST/PUT）は元々 `category_key` 対応済みだったため変更不要。
+- **通話履歴の反映遅延バグ修正**: 電話帳へ登録した直後、`/calls` へ移動しても反映されずリロードすると出てくる問題があった。原因はNavBarの `<Link>`（ソフト遷移）経由だと、ページ自体は `force-dynamic` でもNext.jsのクライアント側Router Cacheが古いRSCペイロードを再利用していたこと。`next.config.ts` に `experimental.staleTimes: { dynamic: 0 }` を追加して解消。
+- 検証: tsc 0・vitest 163green（既存テストの期待値に `categoryKey` 追加が必要だった1件を修正）・build成功・デプロイ後200/302・実機でカテゴリ一覧が正しく渡っていることを確認。
+
 ## 電話帳 UI改善＋SmileEstate区分整理（2026-07-19）
 
 - **電話帳（掲載先）フィルタ新設**: 一覧の区分フィルタの隣に「電話帳: すべて／各電話帳／非掲載（登録のみ）」プルダウン。「非掲載」は phonebook_entry_books 0件のエントリ。

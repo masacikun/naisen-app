@@ -2,6 +2,10 @@
 
 番頭さん（総合管理システム）の電話履歴管理アプリ。Next.js 16 App Router + PostgREST。
 
+## 取引先リンクのプルダウンを検索式に変更（2026-07-22）
+
+`/calls` のクイック編集・`/phonebook` の取引先リンク欄を、mf-accounting-syncの経理入力画面と同じ入力検索式（datalist）に変更（まさし指示・大きい一覧に共通の使い勝手改善を横展開）。表示は取引先名のみ・確定は完全一致時のみ。
+
 ## 取引先の追加電話番号との連携（partner_phone_numbers・2026-07-22）
 
 master-app に新設された `partner_phone_numbers`（取引先の追加電話番号・番号相違や複数拠点用）に対応。

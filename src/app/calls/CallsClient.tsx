@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { useState, useCallback, useTransition } from 'react'
+import { useState, useCallback, useTransition, useEffect } from 'react'
 import { BRANDS } from '@/lib/brands'
 import type { CallsFilters } from './page'
 
@@ -126,6 +126,8 @@ export default function CallsClient({
   const [editName,    setEditName]    = useState('')
   const [editNote,    setEditNote]    = useState('')
   const [editPartner, setEditPartner] = useState('')
+  // 取引先プルダウンの検索欄（2026-07-22・頭のコード非表示＋名前で検索）。確定した取引先は editPartner のまま。
+  const [editPartnerQuery, setEditPartnerQuery] = useState('')
   const [editGroup,   setEditGroup]   = useState('')
   const [editCategory, setEditCategory] = useState('unclassified')
   const [editBlocked, setEditBlocked] = useState(false)
@@ -241,6 +243,10 @@ export default function CallsClient({
     setEditingId(id)
     setEditError('')
   }, [nameMap])
+
+  // 取引先検索欄の表示テキストを editPartner（確定値）に追従させる
+  const selEditPartner = editPartner ? partners.find(pp => String(pp.partner_no) === editPartner) ?? null : null
+  useEffect(() => { setEditPartnerQuery(selEditPartner?.partner_name ?? '') }, [selEditPartner?.partner_no, editingId])
 
   // 電話帳へ登録/更新（既存の電話帳エントリなら名前・メモを更新、無ければ新規作成）
   async function saveEntry() {
@@ -482,18 +488,22 @@ export default function CallsClient({
                           placeholder="グループ（任意）" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
                         <input value={editNote} onChange={e => setEditNote(e.target.value)}
                           placeholder="メモ（任意）" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
-                        <select value={editPartner}
+                        <input list="calls-edit-partner-options" value={editPartnerQuery} autoComplete="off"
+                          placeholder="取引先とリンク（任意・名前で検索）"
                           onChange={e => {
-                            setEditPartner(e.target.value)
-                            const pn = partners.find(pp => String(pp.partner_no) === e.target.value)?.partner_name
-                            if (pn && !editName.trim()) setEditName(pn)
+                            const text = e.target.value
+                            setEditPartnerQuery(text)
+                            if (text === '') { setEditPartner(''); return }
+                            const pp = partners.find(pp => pp.partner_name === text)
+                            if (pp) {
+                              setEditPartner(String(pp.partner_no))
+                              if (!editName.trim()) setEditName(pp.partner_name)
+                            }
                           }}
-                          className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full">
-                          <option value="">取引先とリンク（任意）</option>
-                          {partners.map(pp => (
-                            <option key={pp.partner_no} value={pp.partner_no}>{pp.partner_name}</option>
-                          ))}
-                        </select>
+                          className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
+                        <datalist id="calls-edit-partner-options">
+                          {partners.map(pp => <option key={pp.partner_no} value={pp.partner_name} />)}
+                        </datalist>
                         <label className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 cursor-pointer">
                           <input type="checkbox" checked={editBlocked} onChange={e => setEditBlocked(e.target.checked)} className="rounded" />
                           着信拒否（電話機に着信させない）

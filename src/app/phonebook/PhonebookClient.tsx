@@ -1,5 +1,5 @@
 'use client'
-import { Fragment, useState } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { normalizePhone, splitPhones } from '@/lib/phone'
 import { filterByView, blockedTogglePatch, type PhonebookView } from '@/lib/phonebook-view'
@@ -114,6 +114,8 @@ export default function PhonebookClient({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  // 取引先プルダウンの検索欄（2026-07-22・頭のコード非表示＋名前で検索）。確定した取引先は form.partner_id のまま。
+  const [partnerQuery, setPartnerQuery] = useState('')
 
   // 区分・電話帳の管理パネル（admin）
   const [managing, setManaging] = useState<'category' | 'book' | null>(null)
@@ -130,6 +132,10 @@ export default function PhonebookClient({
     id == null ? '' : partners.find(p => p.partner_no === id)?.partner_name ?? `#${id}`
   const categoryName = (key: string) => categories.find(c => c.key === key)?.name ?? key
   const bookName = (key: string) => books.find(b => b.key === key)?.name ?? key
+
+  // 取引先検索欄の表示テキストを form.partner_id（確定値）に追従させる
+  const selPartner = form.partner_id ? partners.find(p => String(p.partner_no) === form.partner_id) ?? null : null
+  useEffect(() => { setPartnerQuery(selPartner?.partner_name ?? '') }, [selPartner?.partner_no, editingId])
 
   const blockedCount = entries.filter(e => e.blocked).length
   let viewEntries = filterByView(entries, view)
@@ -349,13 +355,19 @@ export default function PhonebookClient({
             <option key={c.key} value={c.key}>{c.name}</option>
           ))}
         </select>
-        <select value={form.partner_id}
-          onChange={e => setForm({ ...form, partner_id: e.target.value })} className={input}>
-          <option value="">取引先リンクなし</option>
-          {partners.map(p => (
-            <option key={p.partner_no} value={p.partner_no}>{p.partner_name}</option>
-          ))}
-        </select>
+        <input list="phonebook-partner-options" value={partnerQuery} autoComplete="off"
+          placeholder="取引先リンク（任意・名前で検索）"
+          onChange={e => {
+            const text = e.target.value
+            setPartnerQuery(text)
+            if (text === '') { setForm({ ...form, partner_id: '' }); return }
+            const p = partners.find(p => p.partner_name === text)
+            if (p) setForm({ ...form, partner_id: String(p.partner_no) })
+          }}
+          className={input} />
+        <datalist id="phonebook-partner-options">
+          {partners.map(p => <option key={p.partner_no} value={p.partner_name} />)}
+        </datalist>
       </div>
       <input placeholder="メモ（任意）" value={form.memo}
         onChange={e => setForm({ ...form, memo: e.target.value })} className={`${input} w-full`} />

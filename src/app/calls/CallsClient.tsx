@@ -118,9 +118,15 @@ export default function CallsClient({
   const [blockedOnly, setBlockedOnly] = useState(filters.blocked === '1')
 
   // ── 相手名（電話帳/master 突合結果）と電話帳インライン登録 ──
+  // names はページ内の発着信相手のみを解決したもの。ページ送りしても CallsClient は
+  // 再マウントされないため useState の初期値のままだと古いページの nameMap が残る
+  // （電話帳が反映されない・リロードで直る不具合）→ names が変わるたびに再同期する。
   const [nameMap, setNameMap] = useState<Map<string, Omit<ResolvedEntry, 'caller'>>>(
     () => new Map(names.map(n => [n.caller, { name: n.name, source: n.source, entryId: n.entryId, note: n.note, blocked: n.blocked, group: n.group, categoryKey: n.categoryKey, partnerNo: n.partnerNo, partnerName: n.partnerName }]))
   )
+  useEffect(() => {
+    setNameMap(new Map(names.map(n => [n.caller, { name: n.name, source: n.source, entryId: n.entryId, note: n.note, blocked: n.blocked, group: n.group, categoryKey: n.categoryKey, partnerNo: n.partnerNo, partnerName: n.partnerName }])))
+  }, [names])
   const [editingId,   setEditingId]   = useState<number | null>(null)
   const [editCaller,  setEditCaller]  = useState('')
   const [editName,    setEditName]    = useState('')

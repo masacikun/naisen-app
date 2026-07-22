@@ -2,6 +2,14 @@
 
 番頭さん（総合管理システム）の電話履歴管理アプリ。Next.js 16 App Router + PostgREST。
 
+## 取引先の追加電話番号との連携（partner_phone_numbers・2026-07-22）
+
+master-app に新設された `partner_phone_numbers`（取引先の追加電話番号・番号相違や複数拠点用）に対応。
+
+- 通話履歴の名前解決（`resolveCallerNames`/`buildNameMap`）が、取引先の会社代表電話（`partners.phone`）に加えて `partner_phone_numbers` も見るようになり、追加登録した番号からの着信も取引先名で表示される
+- 電話帳の連絡先を取引先にリンク（新規作成・編集どちらも）すると、その連絡先の電話番号が取引先側にまだ登録されていなければ自動で `partner_phone_numbers` へ追加（`source=phonebook_link`・ラベルは「電話帳連携: (連絡先名)」・fail-soft＝失敗してもリンク自体は成立）
+- 実装: `src/lib/phonebook.ts` の `syncPartnerPhoneFromEntry`・`src/lib/phonebook-match.ts`（`PartnerExtraPhoneRow`）
+
 ## 通話履歴のクイック登録にカテゴリ選択を追加＋反映遅延の修正（2026-07-22）
 
 - `/calls` のクイック電話帳登録（✏️）に、`/phonebook` と同じ管理済みカテゴリ（`phonebook_categories`）のプルダウンを追加。`buildNameMap`（`lib/phonebook-match.ts`）が返す `ResolvedName.categoryKey` を新設し、編集フォーム・突合バッジ（未分類は非表示）の両方に反映。API側（`/api/phonebook` POST/PUT）は元々 `category_key` 対応済みだったため変更不要。

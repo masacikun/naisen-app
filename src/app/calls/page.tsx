@@ -76,6 +76,7 @@ export default async function CallsPage({
   const nameMap = await resolveCallerNames(counterparts)
   const names: ResolvedEntry[] = [...nameMap.entries()].map(([caller, r]) => ({
     caller, name: r.name, source: r.source, entryId: r.entryId, note: r.note ?? null, blocked: r.blocked ?? false, group: r.group ?? null,
+    categoryKey: r.categoryKey ?? null,
     partnerNo: r.partnerNo, partnerName: r.partnerName,
   }))
 
@@ -94,7 +95,7 @@ export default async function CallsPage({
   for (const c of new Set(counterparts)) {
     const digits = (c ?? '').replace(/[^0-9]/g, '')
     if (!nameMap.has(c) && extNames[digits]) {
-      names.push({ caller: c, name: extNames[digits], source: '電話帳', note: null, blocked: false, group: null })
+      names.push({ caller: c, name: extNames[digits], source: '電話帳', note: null, blocked: false, group: null, categoryKey: null })
     }
   }
 
@@ -107,6 +108,12 @@ export default async function CallsPage({
     .eq('is_deleted', false)
     .order('partner_name')
 
+  // ✏️のカテゴリ選択用（2026-07-22 まさし指示・/phonebook と同じ管理済みカテゴリ一覧）
+  const { data: categories } = await supabaseServer
+    .from('phonebook_categories')
+    .select('key,name')
+    .order('sort')
+
   return (
     <CallsClient
       calls={calls}
@@ -115,6 +122,7 @@ export default async function CallsPage({
       filters={sp}
       names={names}
       partners={partners ?? []}
+      categories={categories ?? []}
       isAdmin={isAdmin}
       excludeIntDefault={excludeInt}
       extNames={extNames}

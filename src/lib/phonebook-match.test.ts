@@ -12,7 +12,7 @@ describe('buildNameMap', () => {
       noMaster.partners, noMaster.employees,
     )
     expect(map.get('0312345678')).toEqual({
-      name: 'テスト商店', source: '電話帳', entryId: 1, note: '得意先', blocked: false, group: null, numberKind: null,
+      name: 'テスト商店', source: '電話帳', entryId: 1, note: '得意先', blocked: false, group: null, categoryKey: null, numberKind: null,
     })
   })
 

@@ -13,6 +13,7 @@ type Call = {
   recording_file: string | null
 }
 export type PartnerOpt = { partner_no: number; partner_name: string }
+export type CategoryOpt = { key: string; name: string }
 export type ResolvedEntry = {
   caller: string
   name: string
@@ -21,6 +22,7 @@ export type ResolvedEntry = {
   note: string | null
   blocked?: boolean
   group?: string | null
+  categoryKey?: string | null
   partnerNo?: number
   partnerName?: string
 }
@@ -89,10 +91,10 @@ function fmt81(n?: string | null): string {
 }
 
 export default function CallsClient({
-  calls, total, page, filters, names, partners, isAdmin, excludeIntDefault, extNames = {},
+  calls, total, page, filters, names, partners, categories = [], isAdmin, excludeIntDefault, extNames = {},
 }: {
   calls: Call[]; total: number; page: number
-  filters: CallsFilters; names: ResolvedEntry[]; partners: PartnerOpt[]; isAdmin: boolean
+  filters: CallsFilters; names: ResolvedEntry[]; partners: PartnerOpt[]; categories?: CategoryOpt[]; isAdmin: boolean
   excludeIntDefault: boolean
   extNames?: Record<string, string>
 }) {
@@ -117,7 +119,7 @@ export default function CallsClient({
 
   // ── 相手名（電話帳/master 突合結果）と電話帳インライン登録 ──
   const [nameMap, setNameMap] = useState<Map<string, Omit<ResolvedEntry, 'caller'>>>(
-    () => new Map(names.map(n => [n.caller, { name: n.name, source: n.source, entryId: n.entryId, note: n.note, blocked: n.blocked, group: n.group, partnerNo: n.partnerNo, partnerName: n.partnerName }]))
+    () => new Map(names.map(n => [n.caller, { name: n.name, source: n.source, entryId: n.entryId, note: n.note, blocked: n.blocked, group: n.group, categoryKey: n.categoryKey, partnerNo: n.partnerNo, partnerName: n.partnerName }]))
   )
   const [editingId,   setEditingId]   = useState<number | null>(null)
   const [editCaller,  setEditCaller]  = useState('')
@@ -125,6 +127,7 @@ export default function CallsClient({
   const [editNote,    setEditNote]    = useState('')
   const [editPartner, setEditPartner] = useState('')
   const [editGroup,   setEditGroup]   = useState('')
+  const [editCategory, setEditCategory] = useState('unclassified')
   const [editBlocked, setEditBlocked] = useState(false)
   const [saving,      setSaving]      = useState(false)
   const [editError,   setEditError]   = useState('')
@@ -232,6 +235,7 @@ export default function CallsClient({
     setEditNote(ex?.note ?? '')
     setEditPartner(ex?.partnerNo != null ? String(ex.partnerNo) : '')
     setEditGroup(ex?.source === '電話帳' ? (ex.group ?? '') : '')
+    setEditCategory(ex?.source === '電話帳' ? (ex.categoryKey ?? 'unclassified') : 'unclassified')
     setEditBlocked(ex?.blocked ?? false)
     setEditCaller(caller)
     setEditingId(id)
@@ -256,7 +260,7 @@ export default function CallsClient({
             : (ex?.source === '取引先' && ex.partnerNo != null ? ex.partnerNo : null)
           const common = {
             name: editName.trim(), memo: editNote.trim() || null, partner_id: partnerId,
-            group_name: editGroup.trim() || null, blocked: editBlocked,
+            group_name: editGroup.trim() || null, category_key: editCategory, blocked: editBlocked,
           }
           return isPhonebook ? common : { ...common, numbers: [editCaller] }
         })()),
@@ -269,7 +273,7 @@ export default function CallsClient({
       const linkedNo = editPartner ? parseInt(editPartner) : (ex?.source === '取引先' ? ex.partnerNo : ex?.partnerNo)
       setNameMap(prev => new Map(prev).set(editCaller, {
         name: editName.trim(), source: '電話帳', entryId: saved.id, note: editNote.trim() || null,
-        blocked: saved.blocked ?? editBlocked, group: editGroup.trim() || null,
+        blocked: saved.blocked ?? editBlocked, group: editGroup.trim() || null, categoryKey: saved.category_key ?? editCategory,
         partnerNo: linkedNo,
         partnerName: linkedNo != null ? partners.find(pp => pp.partner_no === linkedNo)?.partner_name : undefined,
       }))
@@ -470,6 +474,10 @@ export default function CallsClient({
                       <div className="flex flex-col gap-1 min-w-56">
                         <input autoFocus value={editName} onChange={e => setEditName(e.target.value)}
                           placeholder="名前" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
+                        <select value={editCategory} onChange={e => setEditCategory(e.target.value)}
+                          className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full">
+                          {categories.map(c => <option key={c.key} value={c.key}>{c.name}</option>)}
+                        </select>
                         <input value={editGroup} onChange={e => setEditGroup(e.target.value)}
                           placeholder="グループ（任意）" className="border dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs w-full" />
                         <input value={editNote} onChange={e => setEditNote(e.target.value)}
@@ -536,6 +544,11 @@ export default function CallsClient({
                               <span className="text-gray-700 dark:text-gray-300 font-medium text-xs whitespace-nowrap">{info.name}</span>
                             )}
                             <span className={`px-1 py-px rounded text-[10px] ${SOURCE_STYLE[info.source] ?? ''}`}>{info.source}</span>
+                            {info.categoryKey && info.categoryKey !== 'unclassified' && (
+                              <span className="px-1 py-px rounded text-[10px] bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 whitespace-nowrap">
+                                {categories.find(c => c.key === info.categoryKey)?.name ?? info.categoryKey}
+                              </span>
+                            )}
                             {info.group && (
                               <span className="px-1 py-px rounded text-[10px] bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 whitespace-nowrap">{info.group}</span>
                             )}
